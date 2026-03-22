@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historique — Ticket Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Chakra+Petch:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #080c12;
+    --surface: #0d1420;
+    --card:    #111827;
+    --border:  #1a2438;
+    --border2: #243048;
+    --text:    #e8f0ff;
+    --dim:     #7a9ab8;
+    --dim2:    #4a6580;
+    --cyan:    #00e5ff;
+    --cyan-faint: rgba(0,229,255,.06);
+    --amber:   #ffaa00;
+    --red:     #ff3d5a;
+    --green:   #00ff9d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Chakra Petch', sans-serif;
+    height: 100vh; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ───────────────────────────────────────── */
+  .header {
+    padding: 20px 24px 0;
+    flex-shrink: 0;
+  }
+  .header-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .header-title {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .header-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--cyan-faint); border: 1px solid rgba(0,229,255,.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+  h1 {
+    font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: .02em;
+  }
+  .subtitle {
+    font-size: 10px; color: var(--dim); margin-top: 1px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: .05em;
+  }
+
+  /* ── Stats bar ────────────────────────────────────── */
+  .stats-bar {
+    display: flex; gap: 12px; margin-bottom: 16px;
+  }
+  .stat-card {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+  }
+  .stat-label {
+    font-size: 8px; color: var(--dim); letter-spacing: .12em;
+    text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; font-weight: 700; color: var(--text);
+  }
+  .stat-value.cyan  { color: var(--cyan); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.amber { color: var(--amber); }
+
+  /* ── Toolbar ──────────────────────────────────────── */
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 0; padding: 0 24px 12px;
+    flex-shrink: 0;
+  }
+  .search-wrap {
+    flex: 1; position: relative;
+  }
+  .search-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--dim); font-size: 11px; pointer-events: none;
+  }
+  .search-input {
+    width: 100%; padding: 7px 10px 7px 28px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    outline: none; transition: border-color .15s;
+  }
+  .search-input:focus { border-color: var(--cyan); }
+  .search-input::placeholder { color: var(--dim2); }
+
+  .btn {
+    padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer;
+    font-family: 'Chakra Petch', sans-serif; font-size: 10px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; transition: all .15s;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  .btn-outline {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--dim);
+  }
+  .btn-outline:hover { border-color: var(--border2); color: var(--text); }
+  .btn-export {
+    background: transparent; border: 1px solid rgba(0,229,255,.25);
+    color: var(--cyan);
+  }
+  .btn-export:hover { background: var(--cyan-faint); box-shadow: 0 0 8px rgba(0,229,255,.1); }
+  .btn-danger {
+    background: transparent; border: 1px solid rgba(255,61,90,.2);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(255,61,90,.06); }
+
+  /* ── Divider ──────────────────────────────────────── */
+  .divider {
+    height: 1px; background: var(--border);
+    margin: 0;
+  }
+
+  /* ── Table ────────────────────────────────────────── */
+  .table-wrap {
+    flex: 1; overflow-y: auto; padding: 0;
+  }
+  .table-wrap::-webkit-scrollbar { width: 5px; }
+  .table-wrap::-webkit-scrollbar-track { background: transparent; }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--dim2); }
+
+  table {
+    width: 100%; border-collapse: collapse;
+  }
+  thead th {
+    padding: 10px 24px;
+    font-size: 8px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--dim); text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg); position: sticky; top: 0; z-index: 1;
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+    cursor: default;
+  }
+  tbody tr:hover { background: var(--surface); }
+  tbody td {
+    padding: 11px 24px;
+    font-size: 11px; vertical-align: middle;
+  }
+
+  .td-date {
+    color: var(--dim); font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    white-space: nowrap;
+  }
+  .td-ticket {
+    color: var(--cyan); font-family: 'JetBrains Mono', monospace; font-weight: 600;
+    font-size: 11px;
+  }
+  .td-ticket::before { content: '#'; opacity: .5; }
+  .td-duration {
+    color: var(--green); font-family: 'JetBrains Mono', monospace; font-weight: 600;
+    font-size: 12px; white-space: nowrap;
+  }
+  .td-actions {
+    text-align: right;
+  }
+  .btn-del {
+    background: transparent; border: none; color: var(--dim2);
+    cursor: pointer; font-size: 13px; padding: 2px 4px; border-radius: 4px;
+    transition: color .15s, background .15s; line-height: 1;
+  }
+  .btn-del:hover { color: var(--red); background: rgba(255,61,90,.08); }
+
+  /* ── Empty state ──────────────────────────────────── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 24px;
+    color: var(--dim2); gap: 10px;
+  }
+  .empty-icon { font-size: 32px; }
+  .empty-text {
+    font-size: 12px; letter-spacing: .05em; color: var(--dim);
+  }
+  .empty-sub {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--dim2); letter-spacing: .08em;
+  }
+
+  /* ── Footer ───────────────────────────────────────── */
+  .footer {
+    flex-shrink: 0; border-top: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg);
+  }
+  .footer-info {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--dim2);
+  }
+  .footer-total {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--dim);
+  }
+  .footer-total span { color: var(--green); font-weight: 700; }
+
+  /* ── Confirm overlay ──────────────────────────────── */
+  .confirm-overlay {
+    position: fixed; inset: 0; background: rgba(8,12,18,.8);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+    backdrop-filter: blur(4px);
+    z-index: 100;
+  }
+  .confirm-overlay.visible { opacity: 1; pointer-events: all; }
+  .confirm-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 24px; width: 300px; text-align: center;
+    transform: scale(.95); transition: transform .2s;
+  }
+  .confirm-overlay.visible .confirm-card { transform: scale(1); }
+  .confirm-title {
+    font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px;
+  }
+  .confirm-body {
+    font-size: 11px; color: var(--dim); margin-bottom: 20px; line-height: 1.5;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .confirm-actions { display: flex; gap: 8px; justify-content: center; }
+  .btn-confirm-del {
+    padding: 8px 20px; border-radius: 6px; border: none; cursor: pointer;
+    background: var(--red); color: #fff; font-weight: 700; font-size: 11px;
+    font-family: 'Chakra Petch', sans-serif; letter-spacing: .06em; transition: opacity .15s;
+  }
+  .btn-confirm-del:hover { opacity: .85; }
+  .btn-confirm-cancel {
+    padding: 8px 20px; border-radius: 6px; border: 1px solid var(--border);
+    cursor: pointer; background: transparent; color: var(--dim);
+    font-family: 'Chakra Petch', sans-serif; font-size: 11px; letter-spacing: .06em;
+    transition: color .15s, border-color .15s;
+  }
+  .btn-confirm-cancel:hover { color: var(--text); border-color: var(--border2); }
+
+  /* Fade in on load */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .stats-bar, .toolbar, table { animation: fadeIn .3s ease both; }
+  .stats-bar { animation-delay: .05s; }
+  .toolbar   { animation-delay: .1s; }
+  table      { animation-delay: .15s; }
+
+  /* ── Tabs ─────────────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 0; flex-shrink: 0;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .tab {
+    padding: 10px 18px; font-size: 10px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--dim); cursor: pointer; border: none;
+    background: transparent; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: color .15s, border-color .15s;
+    font-family: 'Chakra Petch', sans-serif;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+  .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .tab-panel.active { display: flex; }
+
+  /* ── Settings panel ───────────────────────────────── */
+  .settings-wrap {
+    flex: 1; overflow-y: auto; padding: 20px 24px;
+  }
+  .settings-wrap::-webkit-scrollbar { width: 5px; }
+  .settings-wrap::-webkit-scrollbar-track { background: transparent; }
+  .settings-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .settings-group {
+    margin-bottom: 28px;
+  }
+  .settings-group-title {
+    font-size: 8px; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--cyan);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 12px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+
+  .setting-info { flex: 1; padding-right: 20px; }
+  .setting-label {
+    font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 2px;
+  }
+  .setting-desc {
+    font-size: 10px; color: var(--dim);
+    font-family: 'JetBrains Mono', monospace; line-height: 1.4;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative; width: 40px; height: 22px; flex-shrink: 0; cursor: pointer;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute; inset: 0; border-radius: 11px;
+    background: var(--border2); transition: background .2s;
+    border: 1px solid var(--border);
+  }
+  .toggle input:checked + .toggle-track { background: var(--cyan2); border-color: var(--cyan); }
+  .toggle-thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--dim); transition: transform .2s, background .2s;
+    pointer-events: none;
+  }
+  .toggle input:checked ~ .toggle-thumb {
+    transform: translateX(18px); background: var(--cyan);
+    box-shadow: 0 0 6px rgba(0,229,255,.4);
+  }
+
+  /* Slider */
+  .slider-wrap { display: flex; align-items: center; gap: 10px; min-width: 160px; }
+  .slider-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--cyan); min-width: 36px; text-align: right;
+  }
+  input[type=range] {
+    -webkit-appearance: none; flex: 1; height: 4px;
+    background: var(--border2); border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--cyan); cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,229,255,.3);
+  }
+
+  /* Color swatches */
+  .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch {
+    width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: border-color .15s, transform .15s;
+  }
+  .swatch:hover { transform: scale(1.15); }
+  .swatch.active { border-color: var(--text); }
+
+  /* Action buttons in settings */
+  .btn-setting {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer;
+    font-family: 'Chakra Petch', sans-serif; font-size: 10px; font-weight: 600;
+    letter-spacing: .06em; transition: all .15s;
+  }
+  .btn-setting:hover { border-color: var(--border2); color: var(--text); }
+  .btn-setting.danger { border-color: rgba(255,61,90,.3); color: var(--red); }
+  .btn-setting.danger:hover { background: rgba(255,61,90,.06); }
+
+  .save-bar {
+    flex-shrink: 0; padding: 12px 24px;
+    border-top: 1px solid var(--border); background: var(--bg);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .btn-save-settings {
+    padding: 8px 20px; border-radius: 6px; border: none;
+    background: var(--cyan); color: var(--bg);
+    font-family: 'Chakra Petch', sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: .08em; cursor: pointer; transition: opacity .15s;
+  }
+  .btn-save-settings:hover { opacity: .85; }
+  .save-feedback {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--green); opacity: 0; transition: opacity .3s;
+  }
+  .save-feedback.visible { opacity: 1; }
+
+  /* ── Key capture ──────────────────────────────────── */
+  .key-capture-wrap {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .key-display {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    color: var(--cyan); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 5px; padding: 4px 10px; min-width: 60px; text-align: center;
+    transition: border-color .15s, color .15s;
+  }
+  .key-display.recording {
+    border-color: var(--amber); color: var(--amber);
+    animation: blink-border .6s step-end infinite;
+  }
+  @keyframes blink-border {
+    0%, 100% { border-color: var(--amber); }
+    50%       { border-color: transparent; }
+  }
+  .btn-record {
+    padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer;
+    font-family: 'Chakra Petch', sans-serif; font-size: 9px; font-weight: 600;
+    letter-spacing: .06em; transition: all .15s; white-space: nowrap;
+  }
+  .btn-record:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-record.recording { border-color: var(--amber); color: var(--amber); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-top">
+    <div class="header-title">
+      <div class="header-icon">⏱</div>
+      <div>
+        <h1>Ticket Timer</h1>
+        <div class="subtitle" id="subtitleDate">Chargement...</div>
+      </div>
+    </div>
+  </div>
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card">
+      <div class="stat-label">Billets</div>
+      <div class="stat-value cyan" id="statCount">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Temps total</div>
+      <div class="stat-value green" id="statTotal">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Aujourd'hui</div>
+      <div class="stat-value amber" id="statToday">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab active" id="tabHist" onclick="switchTab('hist')">Historique</button>
+  <button class="tab" id="tabSettings" onclick="switchTab('settings')">Paramètres</button>
+</div>
+
+<!-- ══ TAB: Historique ════════════════════════════════ -->
+<div class="tab-panel active" id="panelHist">
+<div class="toolbar">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="searchInput" type="text"
+           placeholder="Rechercher un billet..." oninput="filterTable()">
+  </div>
+  <button class="btn btn-export" onclick="exportCsv()">⬇ CSV</button>
+  <button class="btn btn-danger" onclick="promptClearAll()">🗑 Effacer</button>
+</div>
+<div class="divider"></div>
+<div class="table-wrap" id="tableWrap">
+  <table id="histTable">
+    <thead>
+      <tr><th>Date</th><th>Heure</th><th>Billet</th><th>Durée</th><th></th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty-state" id="emptyState" style="display:none">
+    <div class="empty-icon">📭</div>
+    <div class="empty-text">Aucun billet enregistré</div>
+    <div class="empty-sub">Utilisez [F6] pour démarrer un minuteur</div>
+  </div>
+</div>
+<div class="divider"></div>
+<div class="footer">
+  <span class="footer-info" id="footerInfo">—</span>
+  <span class="footer-total">Total filtré : <span id="footerTotal">00:00:00</span></span>
+</div>
+</div><!-- /panelHist -->
+
+<!-- ══ TAB: Paramètres ════════════════════════════════ -->
+<div class="tab-panel" id="panelSettings">
+<div class="settings-wrap">
+
+  <div class="settings-group">
+    <div class="settings-group-title">Overlay</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Toujours au premier plan</div>
+        <div class="setting-desc">L'overlay reste visible par-dessus toutes les fenêtres</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="setAlwaysOnTop">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Opacité</div>
+        <div class="setting-desc">Transparence de l'overlay (10% – 100%)</div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="setOpacity" min="10" max="100" step="5"
+               oninput="document.getElementById('opacityVal').textContent = this.value + '%'">
+        <span class="slider-val" id="opacityVal">95%</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Position par défaut</div>
+        <div class="setting-desc">Remet l'overlay en haut à droite de l'écran</div>
+      </div>
+      <button class="btn-setting" onclick="resetPos()">↺ Réinitialiser</button>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">Couleur d'accent</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Thème de couleur</div>
+        <div class="setting-desc">Couleur principale de l'overlay et des indicateurs</div>
+      </div>
+      <div class="color-swatches" id="colorSwatches">
+        <div class="swatch" data-color="cyan"   style="background:#00e5ff" title="Cyan"></div>
+        <div class="swatch" data-color="green"  style="background:#00ff9d" title="Vert"></div>
+        <div class="swatch" data-color="amber"  style="background:#ffaa00" title="Ambre"></div>
+        <div class="swatch" data-color="red"    style="background:#ff3d5a" title="Rouge"></div>
+        <div class="swatch" data-color="violet" style="background:#b06aff" title="Violet"></div>
+        <div class="swatch" data-color="white"  style="background:#c8d8f0" title="Blanc"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">Système</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Démarrer avec Windows</div>
+        <div class="setting-desc">Lance l'application automatiquement à l'ouverture de session</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="setStartWithWindows">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">Raccourcis clavier</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Démarrer</div>
+        <div class="setting-desc">Lance un nouveau minuteur</div>
+      </div>
+      <div class="key-capture-wrap">
+        <div class="key-display" id="keyStart"></div>
+        <button class="btn-record" id="recStart" onclick="startCapture('start')">Modifier</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Pause / Reprendre</div>
+        <div class="setting-desc">Met le minuteur en pause</div>
+      </div>
+      <div class="key-capture-wrap">
+        <div class="key-display" id="keyPause"></div>
+        <button class="btn-record" id="recPause" onclick="startCapture('pause')">Modifier</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Arrêter</div>
+        <div class="setting-desc">Arrête et enregistre le billet</div>
+      </div>
+      <div class="key-capture-wrap">
+        <div class="key-display" id="keyStop"></div>
+        <button class="btn-record" id="recStop" onclick="startCapture('stop')">Modifier</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Historique &amp; Paramètres</div>
+        <div class="setting-desc">Ouvre cette fenêtre</div>
+      </div>
+      <div class="key-capture-wrap">
+        <div class="key-display" id="keyHistory"></div>
+        <button class="btn-record" id="recHistory" onclick="startCapture('history')">Modifier</button>
+      </div>
+    </div>
+    <div class="setting-row" style="border-bottom:none; padding-bottom:0">
+      <div class="setting-desc" style="font-size:9px; color:var(--dim2)">
+        Cliquez "Modifier" puis appuyez sur la touche souhaitée. Échap pour annuler.
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">Données</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Effacer tout l'historique</div>
+        <div class="setting-desc">Supprime définitivement tous les billets enregistrés</div>
+      </div>
+      <button class="btn-setting danger" onclick="promptClearAll()">🗑 Effacer</button>
+    </div>
+  </div>
+
+</div><!-- /settings-wrap -->
+<div class="save-bar">
+  <button class="btn-save-settings" onclick="saveSettings()">Enregistrer</button>
+  <span class="save-feedback" id="saveFeedback">✓ Paramètres sauvegardés</span>
+</div>
+</div><!-- /panelSettings -->
+
+<!-- Confirm overlay -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-card">
+    <div class="confirm-title" id="confirmTitle">Confirmer</div>
+    <div class="confirm-body" id="confirmBody"></div>
+    <div class="confirm-actions">
+      <button class="btn-confirm-del" id="confirmOk">Supprimer</button>
+      <button class="btn-confirm-cancel" onclick="hideConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let allHistory  = [];
+let filteredHistory = [];
+let confirmCallback = null;
+
+// ── Load & render ─────────────────────────────────────────────────────────────
+
+async function loadHistory() {
+  allHistory = await window.api.getHistory();
+  filteredHistory = [...allHistory];
+  renderAll();
+}
+
+function renderAll() {
+  updateStats();
+  renderTable();
+  updateFooter();
+}
+
+function updateStats() {
+  const today    = new Date().toLocaleDateString('fr-CA');
+  const totalS   = allHistory.reduce((s, e) => s + (e.duration_s || 0), 0);
+  const todayS   = allHistory
+    .filter(e => e.date === today)
+    .reduce((s, e) => s + (e.duration_s || 0), 0);
+
+  document.getElementById('statCount').textContent  = allHistory.length;
+  document.getElementById('statTotal').textContent  = fmt(totalS);
+  document.getElementById('statToday').textContent  = fmt(todayS);
+
+  const now = new Date();
+  document.getElementById('subtitleDate').textContent =
+    now.toLocaleDateString('fr-CA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function renderTable() {
+  const tbody    = document.getElementById('tbody');
+  const emptyEl  = document.getElementById('emptyState');
+  const tableEl  = document.getElementById('histTable');
+
+  tbody.innerHTML = '';
+
+  if (filteredHistory.length === 0) {
+    tableEl.style.display = 'none';
+    emptyEl.style.display  = 'flex';
+    return;
+  }
+
+  tableEl.style.display = '';
+  emptyEl.style.display  = 'none';
+
+  // Show most recent first
+  const sorted = [...filteredHistory].reverse();
+  for (const entry of sorted) {
+    const realIndex = allHistory.lastIndexOf(entry); // get actual index for delete
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="td-date">${entry.date || '—'}</td>
+      <td class="td-date">${entry.time || '—'}</td>
+      <td class="td-ticket">${escHtml(entry.ticket || '')}</td>
+      <td class="td-duration">${entry.duration || fmt(entry.duration_s || 0)}</td>
+      <td class="td-actions">
+        <button class="btn-del" title="Supprimer" onclick="promptDelete(${realIndex}, '${escHtml(entry.ticket)}')">×</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function updateFooter() {
+  const totalS = filteredHistory.reduce((s, e) => s + (e.duration_s || 0), 0);
+  document.getElementById('footerTotal').textContent = fmt(totalS);
+  document.getElementById('footerInfo').textContent  =
+    `${filteredHistory.length} / ${allHistory.length} entrée(s)`;
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  filteredHistory = q
+    ? allHistory.filter(e =>
+        (e.ticket || '').toLowerCase().includes(q) ||
+        (e.date   || '').includes(q)
+      )
+    : [...allHistory];
+  renderTable();
+  updateFooter();
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+function promptDelete(index, ticket) {
+  showConfirm(
+    'Supprimer cette entrée ?',
+    `Billet #${ticket} sera retiré de l'historique.`,
+    'Supprimer',
+    async () => {
+      await window.api.deleteEntry(index);
+      await loadHistory();
+      filterTable();
+    }
+  );
+}
+
+function promptClearAll() {
+  if (allHistory.length === 0) return;
+  showConfirm(
+    'Effacer tout l\'historique ?',
+    `${allHistory.length} entrée(s) seront définitivement supprimées.`,
+    'Tout effacer',
+    async () => {
+      await window.api.clearHistory();
+      await loadHistory();
+    }
+  );
+}
+
+async function exportCsv() {
+  if (filteredHistory.length === 0) return;
+  const dest = await window.api.exportCsv(filteredHistory);
+  // Brief visual feedback
+  const btn = document.querySelector('.btn-export');
+  const orig = btn.textContent;
+  btn.textContent = '✓ Exporté';
+  btn.style.color = 'var(--green)';
+  setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+}
+
+// ── Confirm dialog ────────────────────────────────────────────────────────────
+
+function showConfirm(title, body, okLabel, cb) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmBody').textContent  = body;
+  document.getElementById('confirmOk').textContent    = okLabel;
+  confirmCallback = cb;
+  document.getElementById('confirmOverlay').classList.add('visible');
+}
+function hideConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('visible');
+  confirmCallback = null;
+}
+document.getElementById('confirmOk').addEventListener('click', async () => {
+  if (confirmCallback) await confirmCallback();
+  hideConfirm();
+});
+document.getElementById('confirmOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideConfirm();
+});
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+
+function fmt(s) {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  document.getElementById('panel' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+const ACCENT_COLORS = {
+  cyan:   { main: '#00e5ff', dark: '#006680' },
+  green:  { main: '#00ff9d', dark: '#007a4a' },
+  amber:  { main: '#ffaa00', dark: '#664400' },
+  red:    { main: '#ff3d5a', dark: '#6b1e24' },
+  violet: { main: '#b06aff', dark: '#5a2a88' },
+  white:  { main: '#c8d8f0', dark: '#445566' },
+};
+
+let currentSettings = {};
+
+async function loadSettings() {
+  currentSettings = await window.api.getSettings();
+
+  document.getElementById('setAlwaysOnTop').checked       = currentSettings.alwaysOnTop;
+  document.getElementById('setStartWithWindows').checked  = currentSettings.startWithWindows;
+
+  const opPct = Math.round((currentSettings.opacity || 0.95) * 100);
+  document.getElementById('setOpacity').value       = opPct;
+  document.getElementById('opacityVal').textContent = opPct + '%';
+
+  // Swatches
+  document.querySelectorAll('.swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.color === (currentSettings.accentColor || 'cyan'));
+    s.addEventListener('click', () => {
+      document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+      s.classList.add('active');
+    });
+  });
+
+  // Shortcuts
+  const sc = currentSettings.shortcuts || {};
+  document.getElementById('keyStart').textContent   = sc.start   || 'F6';
+  document.getElementById('keyPause').textContent   = sc.pause   || 'F7';
+  document.getElementById('keyStop').textContent    = sc.stop    || 'F8';
+  document.getElementById('keyHistory').textContent = sc.history || 'F9';
+}
+
+async function saveSettings() {
+  const accentColor = document.querySelector('.swatch.active')?.dataset.color || 'cyan';
+  const opacity     = parseInt(document.getElementById('setOpacity').value) / 100;
+  const shortcuts   = {
+    start:   document.getElementById('keyStart').textContent.trim(),
+    pause:   document.getElementById('keyPause').textContent.trim(),
+    stop:    document.getElementById('keyStop').textContent.trim(),
+    history: document.getElementById('keyHistory').textContent.trim(),
+  };
+
+  const s = {
+    alwaysOnTop:      document.getElementById('setAlwaysOnTop').checked,
+    startWithWindows: document.getElementById('setStartWithWindows').checked,
+    opacity,
+    accentColor,
+    shortcuts,
+  };
+
+  await window.api.saveSettings(s);
+  currentSettings = s;
+
+  const fb = document.getElementById('saveFeedback');
+  fb.classList.add('visible');
+  setTimeout(() => fb.classList.remove('visible'), 2000);
+}
+
+// ── Key capture ───────────────────────────────────────────────────────────────
+
+let capturingAction = null;
+
+// Map raw key names to Electron accelerator format
+function toAccelerator(e) {
+  const special = {
+    ' ': 'Space', 'ArrowUp': 'Up', 'ArrowDown': 'Down',
+    'ArrowLeft': 'Left', 'ArrowRight': 'Right',
+    'Enter': 'Return', 'Delete': 'Delete', 'Backspace': 'Backspace',
+    'Tab': 'Tab', 'CapsLock': 'CapsLock',
+  };
+  // Ignore pure modifiers
+  if (['Control','Shift','Alt','Meta'].includes(e.key)) return null;
+  // Function keys
+  if (/^F\d+$/.test(e.key)) return e.key;
+  // Special keys
+  if (special[e.key]) return special[e.key];
+  // Single character
+  if (e.key.length === 1) return e.key.toUpperCase();
+  return null;
+}
+
+function startCapture(action) {
+  // Cancel any existing capture
+  if (capturingAction) cancelCapture();
+
+  capturingAction = action;
+  const displayId = 'key' + action.charAt(0).toUpperCase() + action.slice(1);
+  const btnId     = 'rec'  + action.charAt(0).toUpperCase() + action.slice(1);
+  const display   = document.getElementById(displayId);
+  const btn       = document.getElementById(btnId);
+
+  display.classList.add('recording');
+  display.textContent = '…';
+  btn.classList.add('recording');
+  btn.textContent = 'Annuler';
+  btn.onclick = cancelCapture;
+
+  document.addEventListener('keydown', onKeyCapture, true);
+}
+
+function cancelCapture() {
+  if (!capturingAction) return;
+  document.removeEventListener('keydown', onKeyCapture, true);
+  // Restore previous value
+  const sc  = currentSettings.shortcuts || {};
+  const map = { start: 'F6', pause: 'F7', stop: 'F8', history: 'F9' };
+  const displayId = 'key' + capturingAction.charAt(0).toUpperCase() + capturingAction.slice(1);
+  const btnId     = 'rec' + capturingAction.charAt(0).toUpperCase() + capturingAction.slice(1);
+  const prevAction = capturingAction; // capture before nulling
+  capturingAction = null;
+  document.getElementById(displayId).textContent = sc[prevAction] || map[prevAction];
+  document.getElementById(displayId).classList.remove('recording');
+  document.getElementById(btnId).classList.remove('recording');
+  document.getElementById(btnId).textContent = 'Modifier';
+  document.getElementById(btnId).onclick = () => startCapture(prevAction);
+}
+
+function onKeyCapture(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (e.key === 'Escape') { cancelCapture(); return; }
+
+  const key = toAccelerator(e);
+  if (!key) return;
+
+  document.removeEventListener('keydown', onKeyCapture, true);
+
+  const displayId = 'key' + capturingAction.charAt(0).toUpperCase() + capturingAction.slice(1);
+  const btnId     = 'rec' + capturingAction.charAt(0).toUpperCase() + capturingAction.slice(1);
+  const display   = document.getElementById(displayId);
+  const btn       = document.getElementById(btnId);
+
+  display.textContent = key;
+  display.classList.remove('recording');
+  btn.classList.remove('recording');
+  btn.textContent = 'Modifier';
+
+  const prevAction = capturingAction;
+  btn.onclick = () => startCapture(prevAction);
+  capturingAction = null;
+}
+
+function resetPos() {
+  window.api.resetPosition();
+  const fb = document.getElementById('saveFeedback');
+  fb.textContent = '↺ Position réinitialisée';
+  fb.classList.add('visible');
+  setTimeout(() => { fb.classList.remove('visible'); fb.textContent = '✓ Paramètres sauvegardés'; }, 2000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+loadHistory();
+loadSettings();
+</script>
+</body>
+</html>
