@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Détail du billet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #080c12; --surface: #0d1420; --card: #111827;
+    --border:  #1a2438; --border2: #243048;
+    --text:    #e8f0ff; --dim: #7a9ab8;    --dim2: #4a6580;
+    --cyan:    #00e5ff; --green: #00ff9d;  --amber: #ffaa00;
+    --red:     #ff3d5a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Chakra Petch', sans-serif;
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* ── Header ──────────────────────────────────────────────────────────────── */
+  .header {
+    padding: 16px 24px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+  }
+  .ticket-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
+    color: var(--cyan); line-height: 1; flex-shrink: 0;
+  }
+  .ticket-badge::before { content: '#'; opacity: .4; }
+  /* Edit mode: badge becomes an input */
+  body.editing .ticket-badge { display: none; }
+  .ticket-input-wrap { display: none; align-items: center; gap: 6px; }
+  body.editing .ticket-input-wrap { display: flex; }
+  .ticket-input-prefix {
+    font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
+    color: var(--cyan); opacity: .4; line-height: 1;
+  }
+  .ticket-input {
+    font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700;
+    color: var(--cyan); background: transparent; border: none;
+    border-bottom: 1px solid var(--cyan); outline: none;
+    width: 120px; padding: 0 2px;
+  }
+  .header-meta { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .header-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .header-sub   { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--dim); }
+
+  /* ── Body ────────────────────────────────────────────────────────────────── */
+  .body { flex: 1; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  .body::-webkit-scrollbar { width: 5px; }
+  .body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Field ───────────────────────────────────────────────────────────────── */
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field-label {
+    font-size: 8px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--dim2); font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .field-value {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text);
+    min-height: 38px; display: flex; align-items: center;
+  }
+  .field-value.large {
+    font-size: 22px; font-weight: 700; color: var(--green);
+    text-shadow: 0 0 12px rgba(0,255,157,.15);
+    justify-content: center;
+  }
+  .field-value.resume-val {
+    font-size: 11px; color: var(--dim); min-height: 48px; align-items: flex-start;
+    white-space: pre-wrap; word-break: break-word;
+    font-family: 'Chakra Petch', sans-serif; display: block;
+  }
+  .field-value.session-notes-val {
+    font-size: 11px; color: var(--text); min-height: 56px; align-items: flex-start;
+    white-space: normal; word-break: break-word;
+    font-family: 'Chakra Petch', sans-serif; line-height: 1.6;
+    display: block; overflow-y: auto; max-height: 200px;
+  }
+  .field-value.session-notes-val img    { max-width:100%; border-radius:4px; margin:4px 0; border:1px solid var(--border); display:block; }
+  .field-value.session-notes-val b,
+  .field-value.session-notes-val strong { color:#fff; }
+  .field-value.session-notes-val ul,
+  .field-value.session-notes-val ol     { padding-left:18px; }
+  .field-value.session-notes-val li     { margin:2px 0; }
+  .field-value.session-notes-val h3     { font-size:12px; color:var(--cyan); margin-bottom:4px; }
+  .field-value.empty { color: var(--dim2); font-style: italic; }
+
+  .fields-row { display: flex; gap: 12px; }
+  .fields-row .field { flex: 1; }
+
+  /* ── Accent bar ──────────────────────────────────────────────────────────── */
+  .accent-top { height: 3px; flex-shrink: 0; background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+
+  /* ── Copy button ─────────────────────────────────────────────────────────── */
+  .btn-copy-label {
+    padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer;
+    font-family: 'Chakra Petch', sans-serif; font-size: 8px; letter-spacing: .06em;
+    transition: all .15s;
+  }
+  .btn-copy-label:hover { color: var(--cyan); border-color: var(--cyan); }
+
+  /* ── View / Edit visibility ──────────────────────────────────────────────── */
+  .edit-only { display: none !important; }
+  body.editing .view-only { display: none !important; }
+  body.editing .edit-only { display: revert !important; }
+
+  /* ── Edit inputs ─────────────────────────────────────────────────────────── */
+  .field-input {
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 6px;
+    padding: 10px 14px; color: var(--text); outline: none;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 100%;
+    transition: border-color .15s;
+  }
+  .field-input:focus { border-color: var(--cyan); }
+  .field-input.duration-input { font-size: 20px; font-weight: 700; color: var(--green); text-align: center; }
+  textarea.field-input {
+    font-family: 'Chakra Petch', sans-serif; font-size: 11px;
+    min-height: 72px; resize: vertical; line-height: 1.6;
+  }
+
+  /* ── Notes editor (edit mode) ────────────────────────────────────────────── */
+  .notes-toolbar {
+    display: flex; gap: 4px; padding: 5px 8px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-bottom: none; border-radius: 6px 6px 0 0;
+  }
+  .notes-toolbar button {
+    padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer; font-size: 11px;
+    transition: all .15s; line-height: 1.4;
+  }
+  .notes-toolbar button:hover { background: var(--border); color: var(--text); }
+  .notes-editor {
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 0 0 6px 6px;
+    padding: 10px 14px; color: var(--text); outline: none;
+    font-family: 'Chakra Petch', sans-serif; font-size: 11px; line-height: 1.7;
+    min-height: 120px; max-height: 260px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+    caret-color: var(--cyan);
+  }
+  .notes-editor:focus { border-color: var(--cyan); }
+  .notes-editor img    { max-width:100%; border-radius:4px; margin:4px 0; border:1px solid var(--border); display:block; }
+  .notes-editor b,
+  .notes-editor strong { color:#fff; }
+  .notes-editor ul,
+  .notes-editor ol     { padding-left:18px; }
+  .notes-editor li     { margin:2px 0; }
+
+  /* ── Footer ──────────────────────────────────────────────────────────────── */
+  .footer {
+    padding: 10px 24px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; align-items: center;
+  }
+  .btn { padding: 7px 16px; border-radius: 6px; cursor: pointer; font-family: 'Chakra Petch', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; transition: all .15s; }
+  .btn-primary   { background: var(--cyan); color: var(--bg); border: none; }
+  .btn-primary:hover { opacity: .85; }
+  .btn-secondary { background: transparent; color: var(--dim); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--border2); }
+  .btn-danger    { background: transparent; color: var(--red); border: 1px solid rgba(255,61,90,.35); }
+  .btn-danger:hover { background: rgba(255,61,90,.1); }
+  .save-status { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--green); opacity: 0; transition: opacity .3s; margin-right: auto; }
+  .save-status.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="accent-top"></div>
+
+<div class="header">
+  <!-- View mode badge -->
+  <div class="ticket-badge view-only" id="ticketNum">—</div>
+  <!-- Edit mode ticket input -->
+  <div class="ticket-input-wrap edit-only">
+    <span class="ticket-input-prefix">#</span>
+    <input class="ticket-input" id="inputTicket" type="text" spellcheck="false" placeholder="Ticket">
+  </div>
+  <div class="header-meta">
+    <div class="header-title" id="headerTitle">Détail du billet</div>
+    <div class="header-sub"   id="headerSub">—</div>
+  </div>
+</div>
+
+<div class="body">
+
+  <!-- Duration -->
+  <div class="field">
+    <div class="field-label">Durée enregistrée</div>
+    <div class="field-value large view-only" id="fieldDuration">—</div>
+    <input class="field-input duration-input edit-only" id="inputDuration" type="text"
+           placeholder="HH:MM:SS" spellcheck="false">
+  </div>
+
+  <!-- Date + Time -->
+  <div class="fields-row">
+    <div class="field">
+      <div class="field-label">Date</div>
+      <div class="field-value view-only" id="fieldDate">—</div>
+      <input class="field-input edit-only" id="inputDate" type="text" placeholder="YYYY-MM-DD" spellcheck="false">
+    </div>
+    <div class="field">
+      <div class="field-label">Heure</div>
+      <div class="field-value view-only" id="fieldTime">—</div>
+      <input class="field-input edit-only" id="inputTime" type="text" placeholder="HH:MM" spellcheck="false">
+    </div>
+  </div>
+
+  <!-- Résumé -->
+  <div class="field">
+    <div class="field-label">Résumé</div>
+    <div class="field-value resume-val view-only" id="fieldNote">—</div>
+    <textarea class="field-input edit-only" id="inputNote" placeholder="Résumé / note..."></textarea>
+  </div>
+
+  <!-- Session notes -->
+  <div class="field" id="sessionNotesField">
+    <div class="field-label">
+      Notes de session
+      <button class="btn-copy-label view-only" id="btnCopyNotes" onclick="copySessionNotes()">⧉ Copier</button>
+    </div>
+    <!-- View -->
+    <div class="field-value session-notes-val view-only" id="fieldSessionNotes"></div>
+    <!-- Edit -->
+    <div class="edit-only">
+      <div class="notes-toolbar">
+        <button onmousedown="e_exec(event,'bold')"               title="Gras (Ctrl+B)"><b>B</b></button>
+        <button onmousedown="e_exec(event,'italic')"             title="Italique (Ctrl+I)"><i>I</i></button>
+        <button onmousedown="e_exec(event,'underline')"          title="Souligné (Ctrl+U)"><u>U</u></button>
+        <button onmousedown="e_exec(event,'insertUnorderedList')" title="Liste à puces">•</button>
+        <button onmousedown="e_exec(event,'insertOrderedList')"   title="Liste numérotée">1.</button>
+      </div>
+      <div class="notes-editor" id="notesEditor" contenteditable="true"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <span class="save-status" id="saveStatus">✓ Sauvegardé</span>
+
+  <!-- View mode buttons -->
+  <button class="btn btn-secondary view-only" onclick="window.close()">Fermer</button>
+  <button class="btn btn-secondary view-only" id="btnOpen" onclick="openTicket()" style="display:none">↗ Ouvrir le billet</button>
+  <button class="btn btn-primary view-only" onclick="enterEdit()">✎ Éditer</button>
+
+  <!-- Edit mode buttons -->
+  <button class="btn btn-danger edit-only"   onclick="cancelEdit()">Annuler</button>
+  <button class="btn btn-primary edit-only"  onclick="saveEdit()">Sauvegarder</button>
+</div>
+
+<script>
+'use strict';
+
+let ticketUrl    = '';
+let currentEntry = null;
+let currentIndex = -1;
+
+// ── Receive entry from main ───────────────────────────────────────────────────
+
+window.api.onTicketDetail(payload => {
+  // Support both new {entry, index} and legacy bare-entry format
+  if (payload && typeof payload === 'object' && 'entry' in payload) {
+    currentEntry = payload.entry;
+    currentIndex = payload.index ?? -1;
+  } else {
+    currentEntry = payload;
+    currentIndex = -1;
+  }
+  renderView(currentEntry);
+});
+
+window.api.getSettings().then(s => {
+  ticketUrl = s.ticketUrl || '';
+  if (ticketUrl) document.getElementById('btnOpen').style.display = '';
+});
+
+// ── Render view mode ──────────────────────────────────────────────────────────
+
+function renderView(entry) {
+  const ticketNum = entry.ticket || '';
+  document.getElementById('ticketNum').textContent     = ticketNum;
+  document.getElementById('headerTitle').textContent   = `Billet #${ticketNum}`;
+  document.getElementById('headerSub').textContent     = `${entry.date || ''} à ${entry.time || ''}`;
+  document.getElementById('fieldDuration').textContent = entry.duration || '—';
+  document.getElementById('fieldDate').textContent     = entry.date || '—';
+  document.getElementById('fieldTime').textContent     = entry.time || '—';
+  document.title = `Billet #${ticketNum}`;
+
+  // Résumé
+  const noteEl = document.getElementById('fieldNote');
+  if (entry.note && entry.note.trim()) {
+    noteEl.textContent = entry.note;
+    noteEl.classList.remove('empty');
+  } else {
+    noteEl.textContent = 'Aucun résumé';
+    noteEl.classList.add('empty');
+  }
+
+  // Session notes (rich HTML) — render with timestamps
+  const sessionNotesEl = document.getElementById('fieldSessionNotes');
+  if (entry.sessionNotes && entry.sessionNotes.trim()) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = entry.sessionNotes;
+    tmp.querySelectorAll('[data-ts]').forEach(el => {
+      const text   = el.textContent?.replace(/[\s\n]/g, '') || '';
+      const hasImg = !!el.querySelector('img');
+      if (!text || hasImg) { el.removeAttribute('data-ts'); return; }
+      const ts = el.dataset.ts;
+      const label = document.createElement('span');
+      label.textContent = `[${ts}] `;
+      label.style.cssText = 'color:var(--dim2);font-family:"JetBrains Mono",monospace;font-size:9px;margin-right:2px;white-space:nowrap;';
+      el.insertBefore(label, el.firstChild);
+    });
+    sessionNotesEl.innerHTML = tmp.innerHTML;
+    sessionNotesEl.classList.remove('empty');
+    document.getElementById('btnCopyNotes').style.display = '';
+  } else {
+    sessionNotesEl.textContent = 'Aucune note de session';
+    sessionNotesEl.classList.add('empty');
+    document.getElementById('btnCopyNotes').style.display = 'none';
+  }
+  document.getElementById('sessionNotesField').style.display = '';
+}
+
+// ── Edit mode ─────────────────────────────────────────────────────────────────
+
+function enterEdit() {
+  if (!currentEntry) return;
+  const e = currentEntry;
+
+  document.getElementById('inputTicket').value   = e.ticket   || '';
+  document.getElementById('inputDuration').value = e.duration || '';
+  document.getElementById('inputDate').value     = e.date     || '';
+  document.getElementById('inputTime').value     = e.time     || '';
+  document.getElementById('inputNote').value     = e.note     || '';
+
+  // Load raw HTML into notes editor (preserve data-ts, no timestamp spans)
+  const editor = document.getElementById('notesEditor');
+  editor.innerHTML = e.sessionNotes || '<div><br></div>';
+
+  document.body.classList.add('editing');
+  document.getElementById('inputTicket').focus();
+}
+
+function cancelEdit() {
+  document.body.classList.remove('editing');
+}
+
+function saveEdit() {
+  const ticket   = document.getElementById('inputTicket').value.trim();
+  const duration = document.getElementById('inputDuration').value.trim();
+  const date     = document.getElementById('inputDate').value.trim();
+  const time     = document.getElementById('inputTime').value.trim();
+  const note     = document.getElementById('inputNote').value.trim();
+  const sessionNotes = document.getElementById('notesEditor').innerHTML;
+
+  // Parse duration string (HH:MM:SS or H:MM:SS or MM:SS) → seconds
+  const duration_s = parseDuration(duration);
+
+  const updated = {
+    ...currentEntry,
+    ticket,
+    duration: duration || currentEntry.duration,
+    duration_s: duration_s >= 0 ? duration_s : (currentEntry.duration_s || 0),
+    date,
+    time,
+    note,
+    sessionNotes,
+  };
+
+  if (currentIndex >= 0) {
+    window.api.updateEntry(currentIndex, updated).then(() => {
+      currentEntry = updated;
+      renderView(updated);
+      document.body.classList.remove('editing');
+
+      // Flash save status
+      const st = document.getElementById('saveStatus');
+      st.classList.add('visible');
+      setTimeout(() => st.classList.remove('visible'), 1800);
+
+      // Update window title
+      document.title = `Billet #${ticket}`;
+    }).catch(err => {
+      console.error('updateEntry failed:', err);
+    });
+  } else {
+    // No index — just update locally (fallback for legacy opens)
+    currentEntry = updated;
+    renderView(updated);
+    document.body.classList.remove('editing');
+  }
+}
+
+function parseDuration(str) {
+  if (!str) return -1;
+  const parts = str.split(':').map(Number);
+  if (parts.some(isNaN)) return -1;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 1 && !isNaN(parts[0])) return parts[0];
+  return -1;
+}
+
+// ── Notes editor helpers ──────────────────────────────────────────────────────
+
+function e_exec(event, cmd, val) {
+  event.preventDefault(); // keep focus in editor
+  document.execCommand(cmd, false, val || null);
+  document.getElementById('notesEditor').focus();
+}
+
+// ── Open ticket externally ────────────────────────────────────────────────────
+
+function openTicket() {
+  if (ticketUrl && currentEntry?.ticket) {
+    window.api.openExternal(ticketUrl + encodeURIComponent(currentEntry.ticket));
+  }
+}
+
+// ── Copy session notes ────────────────────────────────────────────────────────
+
+function copySessionNotes() {
+  const el  = document.getElementById('fieldSessionNotes');
+  const btn = document.getElementById('btnCopyNotes');
+
+  const clone = el.cloneNode(true);
+  clone.querySelectorAll('img').forEach(img => {
+    if (!img.parentElement.matches('div, p, figure')) {
+      const wrapper = document.createElement('div');
+      img.parentNode.insertBefore(wrapper, img);
+      wrapper.appendChild(img);
+    }
+  });
+
+  const html = clone.innerHTML;
+  const text = el.innerText || el.textContent || '';
+
+  try {
+    const blob     = new Blob([html], { type: 'text/html' });
+    const blobText = new Blob([text], { type: 'text/plain' });
+    navigator.clipboard.write([
+      new ClipboardItem({ 'text/html': blob, 'text/plain': blobText })
+    ]).then(() => {
+      btn.textContent = '✓ Copié';
+      btn.style.color = 'var(--green)'; btn.style.borderColor = 'var(--green)';
+      setTimeout(() => { btn.textContent = '⧉ Copier'; btn.style.color = ''; btn.style.borderColor = ''; }, 1500);
+    }).catch(() => {
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = '✓ Texte copié';
+        setTimeout(() => { btn.textContent = '⧉ Copier'; }, 1500);
+      });
+    });
+  } catch (_) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+}
+</script>
+</body>
+</html>

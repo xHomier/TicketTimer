@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Historique — Ticket Timer</title>
+<title>Menu — Ticket Timer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Chakra+Petch:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -83,7 +83,7 @@
   /* ── Toolbar ──────────────────────────────────────── */
   .toolbar {
     display: flex; align-items: center; gap: 8px;
-    margin-bottom: 0; padding: 0 24px 12px;
+    margin-bottom: 0; padding: 12px 24px;
     flex-shrink: 0;
   }
   .search-wrap {
@@ -154,7 +154,7 @@
   tbody tr {
     border-bottom: 1px solid var(--border);
     transition: background .1s;
-    cursor: default;
+    cursor: pointer;
   }
   tbody tr:hover { background: var(--surface); }
   tbody td {
@@ -170,7 +170,6 @@
     color: var(--cyan); font-family: 'JetBrains Mono', monospace; font-weight: 600;
     font-size: 11px;
   }
-  .td-ticket::before { content: '#'; opacity: .5; }
   .td-duration {
     color: var(--green); font-family: 'JetBrains Mono', monospace; font-weight: 600;
     font-size: 12px; white-space: nowrap;
@@ -178,12 +177,78 @@
   .td-actions {
     text-align: right;
   }
+  .td-note {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--dim); max-width: 140px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .btn-del {
     background: transparent; border: none; color: var(--dim2);
     cursor: pointer; font-size: 13px; padding: 2px 4px; border-radius: 4px;
     transition: color .15s, background .15s; line-height: 1;
   }
   .btn-del:hover { color: var(--red); background: rgba(255,61,90,.08); }
+
+  .btn-open-ticket {
+    background: transparent; border: none; color: var(--dim);
+    cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 4px;
+    transition: color .15s, background .15s; line-height: 1;
+  }
+  .btn-open-ticket:hover { color: var(--cyan); background: rgba(0,229,255,.08); }
+
+  /* Copy button */
+  .btn-copy {
+    background:transparent; border:none; color:var(--dim2);
+    cursor:pointer; font-size:11px; padding:1px 4px; border-radius:3px;
+    transition:color .15s; line-height:1; vertical-align:middle;
+    opacity:0;
+  }
+  tr:hover .btn-copy { opacity:1; }
+  .btn-copy:hover { color:var(--cyan); }
+  .copy-flash { color:var(--green)!important; opacity:1!important; }
+
+  /* Daily goal */
+  .goal-bar-wrap { margin-top:6px; }
+  .goal-bar-track { height:4px; background:var(--border2); border-radius:2px; overflow:hidden; }
+  .goal-bar-fill  { height:100%; background:var(--green); border-radius:2px; transition:width .6s ease; }
+  .goal-bar-fill.warn { background:var(--amber); }
+  .goal-bar-fill.over { background:var(--red); }
+  .goal-label { font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--dim2); margin-top:3px; }
+
+  /* ── Checkboxes & bulk select ─────────────────────── */
+  .cb-col { width: 32px; text-align: center; }
+  .row-cb {
+    width: 14px; height: 14px; cursor: pointer; accent-color: var(--cyan);
+    border-radius: 3px;
+  }
+  .th-cb { width: 32px; text-align: center; }
+
+  .bulk-bar {
+    display: none; align-items: center; gap: 10px;
+    padding: 6px 24px; background: rgba(0,229,255,.06);
+    border-bottom: 1px solid rgba(0,229,255,.15); flex-shrink: 0;
+  }
+  .bulk-bar.visible { display: flex; }
+  .bulk-count {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--cyan);
+    flex: 1;
+  }
+  .btn-bulk-del {
+    padding: 4px 12px; border-radius: 5px; border: 1px solid rgba(255,61,90,.3);
+    background: transparent; color: var(--red); cursor: pointer;
+    font-family: 'Chakra Petch', sans-serif; font-size: 9px; font-weight: 600;
+    letter-spacing: .06em; transition: all .15s;
+  }
+  .btn-bulk-del:hover { background: rgba(255,61,90,.1); }
+  .btn-bulk-cancel {
+    padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border);
+    background: transparent; color: var(--dim); cursor: pointer;
+    font-family: 'Chakra Petch', sans-serif; font-size: 9px;
+    transition: all .15s;
+  }
+  .btn-bulk-cancel:hover { color: var(--text); }
+
+  tbody tr.selected { background: rgba(0,229,255,.04); }
 
   /* ── Empty state ──────────────────────────────────── */
   .empty-state {
@@ -280,6 +345,16 @@
 
   .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
   .tab-panel.active { display: flex; }
+
+  .tabs-spacer { flex: 1; }
+  .tab-action {
+    padding: 8px 12px; font-size: 9px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--dim2); cursor: pointer; border: none;
+    background: transparent; transition: color .15s;
+    font-family: 'Chakra Petch', sans-serif; white-space: nowrap;
+  }
+  .tab-action:hover { color: var(--cyan); }
 
   /* ── Settings panel ───────────────────────────────── */
   .settings-wrap {
@@ -445,13 +520,25 @@
       <div class="stat-label">Aujourd'hui</div>
       <div class="stat-value amber" id="statToday">—</div>
     </div>
+    <div class="stat-card" id="goalCard" style="display:none">
+      <div class="stat-label">Objectif journalier</div>
+      <div class="stat-value" id="statGoal" style="font-size:13px">—</div>
+      <div class="goal-bar-wrap">
+        <div class="goal-bar-track"><div class="goal-bar-fill" id="goalBarFill" style="width:0%"></div></div>
+        <div class="goal-label" id="goalLabel"></div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- Tabs -->
 <div class="tabs">
-  <button class="tab active" id="tabHist" onclick="switchTab('hist')">Historique</button>
-  <button class="tab" id="tabSettings" onclick="switchTab('settings')">Paramètres</button>
+  <button class="tab active" id="tabHist"     onclick="switchTab('hist')">Historique</button>
+  <button class="tab"        id="tabSettings" onclick="switchTab('settings')">Paramètres</button>
+  <button class="tab"        id="tabDebug"    onclick="openDebugWin()">🐛 Debug</button>
+  <div class="tabs-spacer"></div>
+  <button class="tab-action" onclick="showOverlay()" title="Afficher l'overlay">▶ Overlay</button>
+  <button class="tab-action" onclick="hideOverlay()" title="Masquer l'overlay">– Masquer</button>
 </div>
 
 <!-- ══ TAB: Historique ════════════════════════════════ -->
@@ -460,23 +547,32 @@
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
     <input class="search-input" id="searchInput" type="text"
-           placeholder="Rechercher un billet..." oninput="filterTable()">
+           placeholder="Rechercher un billet..." oninput="scheduleFilter()">
   </div>
   <button class="btn btn-export" onclick="exportCsv()">⬇ CSV</button>
+  <button class="btn btn-outline" onclick="refreshHistory()" title="Rafraîchir">↺</button>
   <button class="btn btn-danger" onclick="promptClearAll()">🗑 Effacer</button>
+</div>
+<div class="bulk-bar" id="bulkBar">
+  <span class="bulk-count" id="bulkCount">0 sélectionné(s)</span>
+  <button class="btn-bulk-del" onclick="promptBulkDelete()">🗑 Supprimer la sélection</button>
+  <button class="btn-bulk-cancel" onclick="clearSelection()">Annuler</button>
 </div>
 <div class="divider"></div>
 <div class="table-wrap" id="tableWrap">
   <table id="histTable">
     <thead>
-      <tr><th>Date</th><th>Heure</th><th>Billet</th><th>Durée</th><th></th></tr>
+      <tr>
+        <th class="th-cb"><input type="checkbox" id="checkAll" class="row-cb" onchange="toggleAll(this.checked)"></th>
+        <th>Date</th><th>Heure</th><th>Billet</th><th>Résumé</th><th>Durée</th><th></th><th></th>
+      </tr>
     </thead>
     <tbody id="tbody"></tbody>
   </table>
   <div class="empty-state" id="emptyState" style="display:none">
     <div class="empty-icon">📭</div>
     <div class="empty-text">Aucun billet enregistré</div>
-    <div class="empty-sub">Utilisez [F6] pour démarrer un minuteur</div>
+    <div class="empty-sub" id="emptySubText">Utilisez [F6] pour démarrer un minuteur</div>
   </div>
 </div>
 <div class="divider"></div>
@@ -524,6 +620,47 @@
   </div>
 
   <div class="settings-group">
+    <div class="settings-group-title">Interface</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Afficher l'onglet Debug</div>
+        <div class="setting-desc">Affiche l'onglet 🐛 Debug dans le menu</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="setShowDebug">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">Productivité</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Objectif journalier</div>
+        <div class="setting-desc">Heures billables visées par jour (0 = désactivé)</div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="setDailyGoal" min="0" max="12" step="0.5"
+               oninput="document.getElementById('dailyGoalVal').textContent = this.value + 'h'">
+        <span class="slider-val" id="dailyGoalVal">0h</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">Alerte de temps</div>
+        <div class="setting-desc">Notification après X minutes sans arrêt (0 = désactivé)</div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="setAlertMinutes" min="0" max="120" step="5"
+               oninput="document.getElementById('alertVal').textContent = this.value == 0 ? 'Off' : this.value + ' min'">
+        <span class="slider-val" id="alertVal">Off</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-group">
     <div class="settings-group-title">Couleur d'accent</div>
     <div class="setting-row">
       <div class="setting-info">
@@ -538,21 +675,6 @@
         <div class="swatch" data-color="violet" style="background:#b06aff" title="Violet"></div>
         <div class="swatch" data-color="white"  style="background:#c8d8f0" title="Blanc"></div>
       </div>
-    </div>
-  </div>
-
-  <div class="settings-group">
-    <div class="settings-group-title">Système</div>
-    <div class="setting-row">
-      <div class="setting-info">
-        <div class="setting-label">Démarrer avec Windows</div>
-        <div class="setting-desc">Lance l'application automatiquement à l'ouverture de session</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="setStartWithWindows">
-        <div class="toggle-track"></div>
-        <div class="toggle-thumb"></div>
-      </label>
     </div>
   </div>
 
@@ -601,6 +723,25 @@
     <div class="setting-row" style="border-bottom:none; padding-bottom:0">
       <div class="setting-desc" style="font-size:9px; color:var(--dim2)">
         Cliquez "Modifier" puis appuyez sur la touche souhaitée. Échap pour annuler.
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">Intégration billets</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-label">URL de base des billets</div>
+        <div class="setting-desc">Le numéro de billet sera ajouté à la suite de cette URL</div>
+      </div>
+    </div>
+    <div class="setting-row" style="border-bottom:none; padding-top:0">
+      <div class="input-wrap" style="flex:1; border:1px solid var(--border); border-radius:5px;">
+        <input type="text" id="setTicketUrl"
+               style="width:100%; padding:7px 10px; background:transparent; border:none; outline:none;
+                      font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text);
+                      caret-color:var(--cyan);"
+               placeholder="https://example.com/ticket?id=">
       </div>
     </div>
   </div>
@@ -657,19 +798,33 @@ function renderAll() {
 }
 
 function updateStats() {
-  const today    = new Date().toLocaleDateString('fr-CA');
-  const totalS   = allHistory.reduce((s, e) => s + (e.duration_s || 0), 0);
-  const todayS   = allHistory
-    .filter(e => e.date === today)
-    .reduce((s, e) => s + (e.duration_s || 0), 0);
+  const today  = new Date().toLocaleDateString('fr-CA');
+  const totalS = allHistory.reduce((s, e) => s + (e.duration_s || 0), 0);
+  const todayS = allHistory.filter(e => e.date === today).reduce((s, e) => s + (e.duration_s || 0), 0);
 
-  document.getElementById('statCount').textContent  = allHistory.length;
-  document.getElementById('statTotal').textContent  = fmt(totalS);
-  document.getElementById('statToday').textContent  = fmt(todayS);
+  document.getElementById('statCount').textContent = allHistory.length;
+  document.getElementById('statTotal').textContent = fmt(totalS);
+  document.getElementById('statToday').textContent = fmt(todayS);
 
   const now = new Date();
   document.getElementById('subtitleDate').textContent =
-    now.toLocaleDateString('fr-CA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    now.toLocaleDateString('fr-CA', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  // Daily goal
+  const goalH = currentSettings.dailyGoalHours || 0;
+  const goalCard = document.getElementById('goalCard');
+  if (goalH > 0) {
+    goalCard.style.display = '';
+    const goalS   = goalH * 3600;
+    const pct     = Math.min(100, Math.round((todayS / goalS) * 100));
+    const fill    = document.getElementById('goalBarFill');
+    fill.style.width = pct + '%';
+    fill.className = 'goal-bar-fill' + (pct >= 100 ? ' over' : pct >= 80 ? ' warn' : '');
+    document.getElementById('statGoal').textContent   = `${pct}%`;
+    document.getElementById('goalLabel').textContent  = `${fmt(todayS)} / ${fmt(goalS)}`;
+  } else {
+    goalCard.style.display = 'none';
+  }
 }
 
 function renderTable() {
@@ -678,6 +833,8 @@ function renderTable() {
   const tableEl  = document.getElementById('histTable');
 
   tbody.innerHTML = '';
+  selectedIndices.clear();
+  document.getElementById('checkAll').checked = false;
 
   if (filteredHistory.length === 0) {
     tableEl.style.display = 'none';
@@ -688,18 +845,37 @@ function renderTable() {
   tableEl.style.display = '';
   emptyEl.style.display  = 'none';
 
-  // Show most recent first
   const sorted = [...filteredHistory].reverse();
   for (const entry of sorted) {
-    const realIndex = allHistory.lastIndexOf(entry); // get actual index for delete
+    const realIndex = allHistory.lastIndexOf(entry);
+    const ticketHtml = `<span class="td-ticket">#${escHtml(entry.ticket || '')}</span>
+      <button class="btn-copy" title="Copier le billet" onclick="copyText('${escHtml(entry.ticket || '')}',this)">⧉</button>`;
+    const resume = entry.note || '';
+    const resumeTrunc = resume.length > 40 ? resume.slice(0, 40) + '…' : resume;
+    const noteHtml = resume
+      ? `<span class="td-note" title="${escHtml(resume)}" style="cursor:help">${escHtml(resumeTrunc)}</span>
+         <button class="btn-copy" title="Copier le résumé" onclick="copyText('${escHtml(resume).replace(/'/g,"\\'")}',this)">⧉</button>`
+      : `<span class="td-note"></span>`;
+    const openBtnHtml = currentSettings.ticketUrl
+      ? `<button class="btn-open-ticket" title="Ouvrir le billet dans le système de billetterie" onclick="openTicket('${escHtml(entry.ticket || '')}')">↗</button>`
+      : '';
     const tr = document.createElement('tr');
+    tr.dataset.index = realIndex;
+    tr.addEventListener('click', e => {
+      // Ignore clicks on checkboxes and action buttons
+      if (e.target.closest('input, button')) return;
+      window.api.openTicketDetail({ entry, index: realIndex });
+    });
     tr.innerHTML = `
+      <td class="cb-col"><input type="checkbox" class="row-cb" onchange="onRowCheck(this, ${realIndex})"></td>
       <td class="td-date">${entry.date || '—'}</td>
       <td class="td-date">${entry.time || '—'}</td>
-      <td class="td-ticket">${escHtml(entry.ticket || '')}</td>
+      <td>${ticketHtml}</td>
+      <td>${noteHtml}</td>
       <td class="td-duration">${entry.duration || fmt(entry.duration_s || 0)}</td>
+      <td class="td-actions">${openBtnHtml}</td>
       <td class="td-actions">
-        <button class="btn-del" title="Supprimer" onclick="promptDelete(${realIndex}, '${escHtml(entry.ticket)}')">×</button>
+        <button class="btn-del" title="Supprimer" data-del-index="${realIndex}" data-del-ticket="${escHtml(entry.ticket || '')}">×</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -715,12 +891,19 @@ function updateFooter() {
 
 // ── Search ────────────────────────────────────────────────────────────────────
 
+let _filterTimer = null;
+function scheduleFilter() {
+  clearTimeout(_filterTimer);
+  _filterTimer = setTimeout(filterTable, 150);
+}
+
 function filterTable() {
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
   filteredHistory = q
     ? allHistory.filter(e =>
         (e.ticket || '').toLowerCase().includes(q) ||
-        (e.date   || '').includes(q)
+        (e.date   || '').includes(q) ||
+        (e.note   || '').toLowerCase().includes(q)
       )
     : [...allHistory];
   renderTable();
@@ -766,7 +949,71 @@ async function exportCsv() {
   setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
 }
 
-// ── Confirm dialog ────────────────────────────────────────────────────────────
+// ── Delegated delete button handler ──────────────────────────────────────────
+
+document.getElementById('tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-del-index]');
+  if (!btn) return;
+  const index  = parseInt(btn.dataset.delIndex);
+  const ticket = btn.dataset.delTicket;
+  promptDelete(index, ticket);
+});
+
+let selectedIndices = new Set();
+
+function onRowCheck(cb, index) {
+  const tr = cb.closest('tr');
+  if (cb.checked) { selectedIndices.add(index); tr.classList.add('selected'); }
+  else            { selectedIndices.delete(index); tr.classList.remove('selected'); }
+  updateBulkBar();
+}
+
+function toggleAll(checked) {
+  selectedIndices.clear();
+  document.querySelectorAll('.row-cb').forEach(cb => {
+    cb.checked = checked;
+    const tr = cb.closest('tr');
+    const idx = parseInt(tr.dataset.index);
+    if (checked) { selectedIndices.add(idx); tr.classList.add('selected'); }
+    else tr.classList.remove('selected');
+  });
+  updateBulkBar();
+}
+
+function clearSelection() {
+  selectedIndices.clear();
+  document.querySelectorAll('.row-cb').forEach(cb => { cb.checked = false; cb.closest('tr').classList.remove('selected'); });
+  document.getElementById('checkAll').checked = false;
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const count = selectedIndices.size;
+  if (count > 0) {
+    bar.classList.add('visible');
+    document.getElementById('bulkCount').textContent = `${count} entrée(s) sélectionnée(s)`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function promptBulkDelete() {
+  const count = selectedIndices.size;
+  if (!count) return;
+  showConfirm(
+    `Supprimer ${count} entrée(s) ?`,
+    `Ces ${count} entrée(s) seront définitivement supprimées.`,
+    'Supprimer',
+    async () => {
+      const sorted = [...selectedIndices].sort((a, b) => b - a); // descending to keep indices valid
+      for (const i of sorted) await window.api.deleteEntry(i);
+      selectedIndices.clear();
+      await loadHistory();
+      updateBulkBar();
+    }
+  );
+}
 
 function showConfirm(title, body, okLabel, cb) {
   document.getElementById('confirmTitle').textContent = title;
@@ -808,8 +1055,10 @@ function escHtml(str) {
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
-  document.getElementById('panel' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  const tabEl = document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1));
+  if (tabEl) tabEl.classList.add('active');
+  const panelEl = document.getElementById('panel' + name.charAt(0).toUpperCase() + name.slice(1));
+  if (panelEl) panelEl.classList.add('active');
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -828,20 +1077,27 @@ let currentSettings = {};
 async function loadSettings() {
   currentSettings = await window.api.getSettings();
 
-  document.getElementById('setAlwaysOnTop').checked       = currentSettings.alwaysOnTop;
-  document.getElementById('setStartWithWindows').checked  = currentSettings.startWithWindows;
+  const showDebug = currentSettings.showDebugTab === true; // default false
+  document.getElementById('setShowDebug').checked = showDebug;
+  document.getElementById('tabDebug').style.display = showDebug ? '' : 'none';
 
   const opPct = Math.round((currentSettings.opacity || 0.95) * 100);
   document.getElementById('setOpacity').value       = opPct;
   document.getElementById('opacityVal').textContent = opPct + '%';
 
-  // Swatches
+  document.getElementById('setTicketUrl').value = currentSettings.ticketUrl || 'https://halopsa.groupesl.com/ticket?id=';
+
+  const goal = currentSettings.dailyGoalHours || 0;
+  document.getElementById('setDailyGoal').value    = goal;
+  document.getElementById('dailyGoalVal').textContent = goal + 'h';
+
+  const alert = currentSettings.alertMinutes || 0;
+  document.getElementById('setAlertMinutes').value = alert;
+  document.getElementById('alertVal').textContent  = alert === 0 ? 'Off' : alert + ' min';
+
+  // Swatches — only update active state (listeners are registered once in init)
   document.querySelectorAll('.swatch').forEach(s => {
     s.classList.toggle('active', s.dataset.color === (currentSettings.accentColor || 'cyan'));
-    s.addEventListener('click', () => {
-      document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
-      s.classList.add('active');
-    });
   });
 
   // Shortcuts
@@ -850,11 +1106,16 @@ async function loadSettings() {
   document.getElementById('keyPause').textContent   = sc.pause   || 'F7';
   document.getElementById('keyStop').textContent    = sc.stop    || 'F8';
   document.getElementById('keyHistory').textContent = sc.history || 'F9';
+
+  // Update empty state hint
+  const emptyHint = document.getElementById('emptySubText');
+  if (emptyHint) emptyHint.textContent = `Utilisez [${sc.start || 'F6'}] pour démarrer un minuteur`;
 }
 
 async function saveSettings() {
   const accentColor = document.querySelector('.swatch.active')?.dataset.color || 'cyan';
   const opacity     = parseInt(document.getElementById('setOpacity').value) / 100;
+  const ticketUrl   = document.getElementById('setTicketUrl').value.trim();
   const shortcuts   = {
     start:   document.getElementById('keyStart').textContent.trim(),
     pause:   document.getElementById('keyPause').textContent.trim(),
@@ -864,14 +1125,20 @@ async function saveSettings() {
 
   const s = {
     alwaysOnTop:      document.getElementById('setAlwaysOnTop').checked,
-    startWithWindows: document.getElementById('setStartWithWindows').checked,
     opacity,
     accentColor,
+    ticketUrl,
+    dailyGoalHours:   parseFloat(document.getElementById('setDailyGoal').value) || 0,
+    alertMinutes:     parseInt(document.getElementById('setAlertMinutes').value) || 0,
+    showDebugTab:     document.getElementById('setShowDebug').checked,
     shortcuts,
   };
 
   await window.api.saveSettings(s);
   currentSettings = s;
+  // Apply debug tab visibility immediately
+  document.getElementById('tabDebug').style.display = s.showDebugTab ? '' : 'none';
+  renderTable(); // refresh links
 
   const fb = document.getElementById('saveFeedback');
   fb.classList.add('visible');
@@ -963,6 +1230,28 @@ function onKeyCapture(e) {
   capturingAction = null;
 }
 
+async function refreshHistory() {
+  const btn = document.querySelector('[onclick="refreshHistory()"]');
+  if (btn) { btn.style.transform = 'rotate(360deg)'; btn.style.transition = 'transform .4s'; }
+  await loadHistory();
+  setTimeout(() => { if (btn) { btn.style.transform = ''; btn.style.transition = ''; } }, 400);
+}
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓';
+    btn.classList.add('copy-flash');
+    setTimeout(() => { btn.textContent = '⧉'; btn.classList.remove('copy-flash'); }, 1200);
+  }).catch(() => {});
+}
+function showOverlay() { window.api.showOverlay(); }
+function hideOverlay() { window.api.hideOverlay(); }
+function openDebugWin() { window.api.openDebug(); }
+function openTicket(ticket) {
+  const base = currentSettings.ticketUrl || 'https://halopsa.groupesl.com/ticket?id=';
+  window.api.openExternal(base + encodeURIComponent(ticket));
+}
+
+
 function resetPos() {
   window.api.resetPosition();
   const fb = document.getElementById('saveFeedback');
@@ -973,8 +1262,30 @@ function resetPos() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-loadHistory();
-loadSettings();
+window.addEventListener('error', e => {
+  window.api.rendererLog('error', `[history] ${e.message} (${e.filename}:${e.lineno})`);
+});
+window.addEventListener('unhandledrejection', e => {
+  window.api.rendererLog('error', `[history] Unhandled rejection: ${e.reason}`);
+});
+
+window.api.onSwitchTab(tab => switchTab(tab));
+
+async function init() {
+  // Swatch click listeners — registered once
+  document.querySelectorAll('.swatch').forEach(s => {
+    s.addEventListener('click', () => {
+      document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+      s.classList.add('active');
+    });
+  });
+
+  try { await loadSettings(); } catch (e) { console.error('loadSettings error:', e); }
+  try { await loadHistory(); } catch (e) { console.error('loadHistory error:', e); }
+  window.api.onHistoryUpdated(() => loadHistory());
+}
+
+init();
 </script>
 </body>
 </html>

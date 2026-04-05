@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Debug — Ticket Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Chakra+Petch:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #080c12; --surface: #0d1420; --border: #1a2438;
+    --text:    #e8f0ff; --dim: #7a9ab8;     --dim2: #4a6580;
+    --cyan:    #00e5ff; --green: #00ff9d;   --amber: #ffaa00;
+    --red:     #ff3d5a; --violet: #b06aff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Chakra Petch',sans-serif;
+         height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* Header */
+  .header { padding:12px 20px; background:var(--surface); border-bottom:1px solid var(--border);
+             display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .header-left { display:flex; align-items:center; gap:10px; }
+  h1 { font-size:14px; font-weight:600; letter-spacing:.05em; }
+  .header-actions { display:flex; gap:8px; }
+  .btn { padding:5px 12px; border-radius:5px; border:1px solid var(--border);
+         background:transparent; color:var(--dim); cursor:pointer;
+         font-family:'Chakra Petch',sans-serif; font-size:9px; font-weight:600;
+         letter-spacing:.06em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
+  .btn:hover { border-color:var(--cyan); color:var(--cyan); }
+  .btn.danger:hover { border-color:var(--red); color:var(--red); }
+
+  /* Filters */
+  .filters { display:flex; gap:6px; padding:8px 20px; background:var(--bg);
+             border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+  .filter-btn { padding:3px 10px; border-radius:20px; border:1px solid var(--border);
+                background:transparent; color:var(--dim2); cursor:pointer;
+                font-family:'JetBrains Mono',monospace; font-size:9px; transition:all .15s; }
+  .filter-btn.active.all   { border-color:var(--text);   color:var(--text); }
+  .filter-btn.active.info  { border-color:var(--cyan);   color:var(--cyan); }
+  .filter-btn.active.warn  { border-color:var(--amber);  color:var(--amber); }
+  .filter-btn.active.error { border-color:var(--red);    color:var(--red); }
+  .filter-btn.active.debug { border-color:var(--violet); color:var(--violet); }
+
+  /* Log area */
+  .log-wrap { flex:1; overflow-y:auto; }
+  .log-wrap::-webkit-scrollbar { width:5px; }
+  .log-wrap::-webkit-scrollbar-track { background:transparent; }
+  .log-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  .log-wrap::-webkit-scrollbar-thumb:hover { background:var(--dim2); }
+
+  .log-entry { display:flex; gap:10px; padding:4px 20px;
+               border-bottom:1px solid rgba(26,36,56,.5); }
+  .log-entry:hover { background:var(--surface); }
+  .log-entry.hidden { display:none; }
+
+  .log-ts { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim2);
+            white-space:nowrap; padding-top:2px; flex-shrink:0; min-width:80px; }
+  .log-badge { font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:600;
+               padding:2px 6px; border-radius:3px; white-space:nowrap; flex-shrink:0;
+               margin-top:1px; height:fit-content; min-width:44px; text-align:center; }
+  .log-badge.info  { background:rgba(0,229,255,.1);   color:var(--cyan);   }
+  .log-badge.warn  { background:rgba(255,170,0,.1);   color:var(--amber);  }
+  .log-badge.error { background:rgba(255,61,90,.15);  color:var(--red);    }
+  .log-badge.debug { background:rgba(176,106,255,.1); color:var(--violet); }
+  .log-msg { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text);
+             white-space:pre-wrap; word-break:break-all; line-height:1.5; }
+  .log-entry.error .log-msg { color:#ffb3bc; }
+  .log-entry.warn  .log-msg { color:#ffd480; }
+
+  /* Footer */
+  .footer { flex-shrink:0; padding:6px 20px; border-top:1px solid var(--border);
+            display:flex; align-items:center; justify-content:space-between; background:var(--bg); }
+  .log-count { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim); }
+  .log-path  { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim2);
+               max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+               cursor:pointer; }
+  .log-path:hover { color:var(--cyan); }
+  .scroll-lock { display:flex; align-items:center; gap:5px; font-size:9px; color:var(--dim);
+                 cursor:pointer; user-select:none; }
+
+  /* Empty / loading */
+  .status-msg { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                height:100%; gap:8px; color:var(--dim2); }
+  .status-icon { font-size:28px; }
+  .status-text { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>🐛 Debug</h1>
+  </div>
+  <div class="header-actions">
+    <button class="btn" onclick="openLogFile()">📂 Ouvrir le fichier log</button>
+    <button class="btn danger" onclick="clearLogs()">🗑 Vider</button>
+  </div>
+</div>
+
+<div class="filters">
+  <button class="filter-btn all active" data-filter="all"   onclick="setFilter('all')">Tous</button>
+  <button class="filter-btn info"       data-filter="info"  onclick="setFilter('info')">INFO</button>
+  <button class="filter-btn warn"       data-filter="warn"  onclick="setFilter('warn')">WARN</button>
+  <button class="filter-btn error"      data-filter="error" onclick="setFilter('error')">ERROR</button>
+  <button class="filter-btn debug"      data-filter="debug" onclick="setFilter('debug')">DEBUG</button>
+</div>
+
+<div class="log-wrap" id="logWrap">
+  <div class="status-msg" id="statusMsg">
+    <div class="status-icon">⏳</div>
+    <div class="status-text">Chargement des logs...</div>
+  </div>
+</div>
+
+<div class="footer">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span class="log-count" id="logCount">0 entrée(s)</span>
+    <span class="log-path" id="logPath" title="Cliquer pour ouvrir" onclick="openLogFile()">—</span>
+  </div>
+  <label class="scroll-lock">
+    <input type="checkbox" id="autoScroll" checked>
+    Auto-scroll
+  </label>
+</div>
+
+<script>
+'use strict';
+
+let currentFilter = 'all';
+let allEntries    = [];
+let logFilePath   = null;
+
+// ── Register live log listener immediately ────────────────────────────────────
+
+window.api.onLog(entry => {
+  appendEntry(entry);
+  updateCount();
+});
+
+// ── Init: load existing logs ──────────────────────────────────────────────────
+
+async function init() {
+  try {
+    const [logs, logPath] = await Promise.all([
+      window.api.getLogs(),
+      window.api.getLogPath(),
+    ]);
+
+    logFilePath = logPath || null;
+    document.getElementById('logPath').textContent = logPath || 'Chemin non disponible';
+
+    const statusMsg = document.getElementById('statusMsg');
+    if (logs && logs.length > 0) {
+      statusMsg.style.display = 'none';
+      for (const entry of logs) appendEntry(entry);
+    } else {
+      statusMsg.innerHTML = '<div class="status-icon">📭</div><div class="status-text">Aucun log pour l\'instant — les nouveaux logs apparaîtront ici en temps réel</div>';
+    }
+    updateCount();
+  } catch (err) {
+    const statusMsg = document.getElementById('statusMsg');
+    statusMsg.innerHTML = `<div class="status-icon">❌</div><div class="status-text">Erreur de chargement : ${err.message}</div>`;
+  }
+}
+
+// ── Append entry ──────────────────────────────────────────────────────────────
+
+function appendEntry({ ts, level, msg }) {
+  const wrap = document.getElementById('logWrap');
+  const statusMsg = document.getElementById('statusMsg');
+  if (statusMsg) statusMsg.style.display = 'none';
+
+  const time = ts ? (() => {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('fr-CA', { hour12: false }) + '.' +
+           String(d.getMilliseconds()).padStart(3, '0');
+  })() : '';
+
+  const lvl = level || 'debug';
+
+  const row = document.createElement('div');
+  row.className = `log-entry ${lvl}${currentFilter !== 'all' && lvl !== currentFilter ? ' hidden' : ''}`;
+  row.dataset.level = lvl;
+  row.innerHTML =
+    `<span class="log-ts">${time}</span>` +
+    `<span class="log-badge ${lvl}">${lvl.toUpperCase()}</span>` +
+    `<span class="log-msg">${escHtml(msg || '')}</span>`;
+
+  wrap.appendChild(row);
+  allEntries.push(row);
+
+  if (document.getElementById('autoScroll').checked) {
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────────
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === f);
+  });
+  for (const row of allEntries) {
+    row.classList.toggle('hidden', f !== 'all' && row.dataset.level !== f);
+  }
+  updateCount();
+  if (document.getElementById('autoScroll').checked) {
+    const wrap = document.getElementById('logWrap');
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+async function clearLogs() {
+  await window.api.clearLogs();
+  allEntries = [];
+  const wrap = document.getElementById('logWrap');
+  wrap.innerHTML = '<div class="status-msg" id="statusMsg"><div class="status-icon">📭</div><div class="status-text">Logs vidés</div></div>';
+  updateCount();
+}
+
+function openLogFile() {
+  if (logFilePath) {
+    window.api.openLogFile(logFilePath);
+  }
+}
+
+function updateCount() {
+  const visible = allEntries.filter(e => !e.classList.contains('hidden')).length;
+  document.getElementById('logCount').textContent = `${visible} / ${allEntries.length} entrée(s)`;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+
+init();
+</script>
+</body>
+</html>

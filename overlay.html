@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Chakra+Petch:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #080c12; --surface: #0d1420; --border: #1a2438;
+    --text:   #e8f0ff; --dim: #7a9ab8;     --dim2: #4a6580;
+    --cyan:   #00e5ff; --cyan2: #006680;
+    --amber:  #ffaa00; --amber2: #664400;
+    --red:    #ff3d5a; --green: #00ff9d;   --violet: #b06aff;
+    --radius: 10px;    --accent: var(--cyan); --accent2: var(--cyan2);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+  html, body { width:100%; height:100%; background:transparent; overflow:hidden; font-family:'Chakra Petch',sans-serif; }
+
+  /* Card */
+  .card { position:absolute; inset:0; background:var(--bg); border:1px solid var(--accent2); border-radius:var(--radius); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 0 0 1px rgba(0,0,0,.6),0 8px 32px rgba(0,0,0,.8); transition:border-color .4s,box-shadow .4s; }
+  .card.running { border-color:var(--cyan); box-shadow:0 0 0 1px rgba(0,0,0,.6),0 8px 32px rgba(0,0,0,.8),0 0 16px rgba(0,229,255,.12); }
+  .card.paused  { border-color:var(--amber); box-shadow:0 0 0 1px rgba(0,0,0,.6),0 8px 32px rgba(0,0,0,.8),0 0 16px rgba(255,170,0,.12); }
+
+  /* Accent bar */
+  .accent-bar { height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); transition:background .4s; flex-shrink:0; }
+
+  /* Titlebar */
+  .titlebar { display:flex; align-items:center; padding:6px 10px 5px; flex-shrink:0; }
+  .titlebar-left { display:flex; align-items:center; gap:7px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--dim2); transition:background .3s,box-shadow .3s; flex-shrink:0; }
+  .status-dot.running { background:var(--cyan); box-shadow:0 0 6px var(--cyan); animation:pulse 1.8s ease-in-out infinite; }
+  .status-dot.paused  { background:var(--amber); box-shadow:0 0 6px var(--amber); animation:blink-dot 1s step-end infinite; }
+  @keyframes pulse    { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)} }
+  @keyframes blink-dot{ 0%,100%{opacity:1}50%{opacity:0} }
+  .app-label { font-size:8px; font-weight:600; letter-spacing:.15em; color:#8ab0cc; text-transform:uppercase; font-family:'JetBrains Mono',monospace; }
+  .titlebar-right { margin-left:auto; display:flex; gap:4px; }
+  .btn-icon { width:18px; height:18px; border-radius:4px; border:none; background:transparent; color:var(--dim2); font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:color .15s,background .15s; }
+  .btn-icon:hover { background:var(--border); color:var(--text); }
+  .btn-icon.close:hover { background:rgba(255,61,90,.15); color:var(--red); }
+
+  /* Slots bar */
+  .slots-bar { display:flex; align-items:center; gap:5px; padding:3px 10px 4px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .slot-dot { width:9px; height:9px; border-radius:50%; background:transparent; border:1.5px solid var(--dim2); cursor:pointer; transition:all .2s; flex-shrink:0; }
+  .slot-dot.has-timer { border-color:var(--dim); background:var(--dim2); }
+  .slot-dot.running   { border-color:var(--cyan); background:var(--cyan); animation:pulse 1.8s ease-in-out infinite; }
+  .slot-dot.paused    { border-color:var(--amber); background:var(--amber); }
+  .slot-dot.active    { box-shadow:0 0 0 2px rgba(255,255,255,.25); }
+  .slot-dot:hover     { border-color:var(--text); }
+  .slot-add { margin-left:3px; width:14px; height:14px; border:1.5px solid var(--dim2); border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--dim2); cursor:pointer; transition:all .15s; background:transparent; line-height:1; }
+  .slot-add:hover { border-color:var(--cyan); color:var(--cyan); }
+  .slot-add:disabled { opacity:.3; cursor:default; pointer-events:none; }
+  .slot-count { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:7px; color:var(--dim2); }
+
+  /* Timer zone */
+  .timer-zone { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 16px 4px; position:relative; }
+  .timer-display { font-family:'JetBrains Mono',monospace; font-size:clamp(22px,8vw,38px); font-weight:700; letter-spacing:.04em; color:#5a7a99; transition:color .4s,text-shadow .4s; line-height:1; }
+  .timer-display.running { color:var(--text); text-shadow:0 0 20px rgba(0,229,255,.3); }
+  .timer-display.paused  { color:var(--amber); text-shadow:0 0 20px rgba(255,170,0,.25); animation:blink-timer 1s step-end infinite; }
+  @keyframes blink-timer { 0%,100%{opacity:1}50%{opacity:.35} }
+  .status-row { display:flex; align-items:center; justify-content:space-between; width:100%; margin-top:4px; }
+  .status-text { font-size:8px; font-weight:600; letter-spacing:.12em; color:#5a7a99; text-transform:uppercase; font-family:'JetBrains Mono',monospace; transition:color .3s; }
+  .status-text.running { color:var(--cyan); }
+  .status-text.paused  { color:var(--amber); }
+  .ticket-tag { font-size:9px; font-family:'JetBrains Mono',monospace; color:var(--cyan); opacity:.8; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* Divider */
+  .divider { height:1px; background:var(--border); flex-shrink:0; margin:0 1px; }
+
+  /* Key bar */
+  .key-bar { display:flex; flex-shrink:0; }
+  .key-item { flex:1; display:flex; flex-direction:column; align-items:center; padding:6px 0 7px; cursor:pointer; border:none; background:transparent; transition:background .15s; position:relative; }
+  .key-item:not(:last-child)::after { content:''; position:absolute; right:0; top:20%; bottom:20%; width:1px; background:var(--border); }
+  .key-item:hover { background:var(--surface); }
+  .key-item:active { background:var(--border); }
+  .key-item.dim { opacity:.3; cursor:default; pointer-events:none; }
+  .key-code  { font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:700; letter-spacing:.08em; margin-bottom:2px; transition:color .2s; }
+  .key-label { font-size:7px; color:#6a8aaa; letter-spacing:.05em; text-transform:uppercase; }
+
+  /* Button color themes */
+  .key-item.start .key-code  { color:var(--cyan); }
+  .key-item.pause .key-code  { color:var(--amber); }
+  .key-item.stop  .key-code  { color:var(--red); }
+  .key-item.note  .key-code  { color:var(--violet); }
+  .key-item.hist  .key-code  { color:var(--green); }
+  .key-item.start:hover .key-code { text-shadow:0 0 8px var(--cyan); }
+  .key-item.pause:hover .key-code { text-shadow:0 0 8px var(--amber); }
+  .key-item.stop:hover  .key-code { text-shadow:0 0 8px var(--red); }
+  .key-item.note:hover  .key-code { text-shadow:0 0 8px var(--violet); }
+  .key-item.hist:hover  .key-code { text-shadow:0 0 8px var(--green); }
+
+  /* Modal overlay */
+  .modal-overlay { position:absolute; inset:0; border-radius:var(--radius); background:rgba(8,12,18,.92); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; opacity:0; pointer-events:none; transition:opacity .2s; padding:10px 12px 12px; backdrop-filter:blur(4px); -webkit-app-region:no-drag; overflow-y:auto; }
+  .modal-overlay.visible { opacity:1; pointer-events:all; }
+  .modal-card { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px; transform:translateY(8px); transition:transform .25s; }
+  .modal-overlay.visible .modal-card { transform:translateY(0); }
+  .modal-title { font-size:8px; font-weight:600; letter-spacing:.15em; color:var(--dim); text-transform:uppercase; font-family:'JetBrains Mono',monospace; margin-bottom:8px; }
+  .saved-time { font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:700; color:var(--green); text-align:center; margin-bottom:10px; text-shadow:0 0 12px rgba(0,255,157,.2); }
+  .input-label { font-size:8px; color:var(--dim); letter-spacing:.1em; text-transform:uppercase; margin-bottom:4px; display:block; font-family:'JetBrains Mono',monospace; }
+  .input-wrap { border:1px solid var(--border); border-radius:5px; transition:border-color .15s; margin-bottom:10px; }
+  .input-wrap:focus-within { border-color:var(--cyan); }
+  .input-wrap.error { border-color:var(--red)!important; animation:shake .3s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)} }
+  .ticket-input { width:100%; padding:6px 10px; background:transparent; border:none; outline:none; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; color:var(--text); caret-color:var(--cyan); -webkit-app-region:no-drag; }
+  .resume-input { width:100%; padding:6px 10px; background:transparent; border:none; outline:none; font-family:'Chakra Petch',sans-serif; font-size:11px; color:var(--text); caret-color:var(--cyan); -webkit-app-region:no-drag; resize:none; min-height:54px; line-height:1.5; }
+  .modal-actions { display:flex; gap:8px; margin-bottom:8px; }
+  .btn-save { flex:1; padding:7px; border:none; border-radius:5px; background:var(--cyan); color:var(--bg); font-family:'Chakra Petch',sans-serif; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:opacity .15s; }
+  .btn-save:hover { opacity:.85; }
+  .btn-discard { flex:1; padding:7px; border:1px solid rgba(255,61,90,.3); border-radius:5px; background:transparent; color:var(--red); font-family:'Chakra Petch',sans-serif; font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:all .15s; }
+  .btn-discard:hover { border-color:var(--red); background:rgba(255,61,90,.08); }
+  .btn-cancel-full { width:100%; padding:7px; border:1px solid var(--border); border-radius:5px; background:transparent; color:var(--dim); font-family:'Chakra Petch',sans-serif; font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:border-color .15s,color .15s; }
+  .btn-cancel-full:hover { border-color:var(--text); color:var(--text); }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="accent-bar" id="accentBar"></div>
+
+  <!-- Titlebar -->
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="app-label">Ticket Timer</span>
+    </div>
+    <div class="titlebar-right">
+      <button class="btn-icon" title="Masquer" id="collapseBtn" onclick="toggleCollapse()">–</button>
+      <button class="btn-icon" title="Menu" onclick="openHistory()">≡</button>
+      <button class="btn-icon close" title="Fermer" onclick="window.api.hideOverlay()">×</button>
+    </div>
+  </div>
+
+  <!-- Slots bar -->
+  <div class="slots-bar">
+    <div class="slot-dot" id="slot0" onclick="switchSlot(0)" title="Timer 1"></div>
+    <div class="slot-dot" id="slot1" onclick="switchSlot(1)" title="Timer 2"></div>
+    <div class="slot-dot" id="slot2" onclick="switchSlot(2)" title="Timer 3"></div>
+    <div class="slot-dot" id="slot3" onclick="switchSlot(3)" title="Timer 4"></div>
+    <div class="slot-dot" id="slot4" onclick="switchSlot(4)" title="Timer 5"></div>
+    <button class="slot-add" id="slotAdd" onclick="addSlot()" title="Nouveau timer">+</button>
+    <span class="slot-count" id="slotCount"></span>
+  </div>
+
+  <!-- Timer -->
+  <div class="timer-zone">
+    <div class="timer-display" id="timerDisplay">00:00:00</div>
+    <div class="status-row">
+      <span class="status-text" id="statusText">EN ATTENTE</span>
+      <span class="ticket-tag"  id="ticketTag"></span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Key bar (dynamic labels) -->
+  <div class="key-bar">
+    <button class="key-item start" id="keyBtn1" onclick="handleBtn1()">
+      <span class="key-code"  id="key1Code">F6</span>
+      <span class="key-label" id="key1Label">Démarrer</span>
+    </button>
+    <button class="key-item dim" id="keyBtn2" onclick="handleBtn2()">
+      <span class="key-code"  id="key2Code">F7</span>
+      <span class="key-label" id="key2Label">—</span>
+    </button>
+    <button class="key-item dim" id="keyBtn3" onclick="handleBtn3()">
+      <span class="key-code"  id="key3Code">F8</span>
+      <span class="key-label" id="key3Label">—</span>
+    </button>
+    <button class="key-item hist" onclick="openHistory()">
+      <span class="key-code"  id="key4Code">F9</span>
+      <span class="key-label">Menu</span>
+    </button>
+  </div>
+
+  <!-- Save modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-card">
+      <div class="modal-title">Enregistrer le temps</div>
+      <div class="saved-time" id="savedTime">00:00:00</div>
+      <label class="input-label">Numéro de billet</label>
+      <div class="input-wrap" id="inputWrap">
+        <input class="ticket-input" id="ticketInput" type="text" placeholder="#000000" autocomplete="off">
+      </div>
+      <label class="input-label" style="margin-top:6px;">Résumé (optionnel)</label>
+      <div class="input-wrap" id="noteWrap">
+        <textarea class="resume-input" id="noteInput" placeholder="ex: Remplacement carte réseau, config VPN..." rows="3"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-save"    onclick="saveEntry()">Enregistrer</button>
+        <button class="btn-discard" onclick="discardEntry()">🗑 Supprimer</button>
+      </div>
+      <button class="btn-cancel-full" onclick="cancelModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Multi-timer state ─────────────────────────────────────────────────────────
+
+const MAX_SLOTS = 5;
+const slots = Array.from({length: MAX_SLOTS}, () => ({
+  running: false, paused: false,
+  elapsed: 0, baseTime: 0,
+  ticket: null, notes: '',
+  alertFired: false,
+}));
+let activeSlot  = 0;
+let tickInterval = null;
+let shortcuts   = { start: 'F6', pause: 'F7', stop: 'F8', history: 'F9' };
+let alertMinutes = 0; // 0 = disabled
+
+const cs = () => slots[activeSlot]; // current slot shorthand
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
+const card       = document.getElementById('card');
+const accentBar  = document.getElementById('accentBar');
+const statusDot  = document.getElementById('statusDot');
+const timerDsp   = document.getElementById('timerDisplay');
+const statusText = document.getElementById('statusText');
+const ticketTag  = document.getElementById('ticketTag');
+const modal      = document.getElementById('modal');
+const savedTime  = document.getElementById('savedTime');
+const ticketInput= document.getElementById('ticketInput');
+const inputWrap  = document.getElementById('inputWrap');
+
+// ── Hotkeys from main ─────────────────────────────────────────────────────────
+
+window.api.onHotkey(action => {
+  if (action === 'start')   handleBtn1();
+  else if (action === 'pause') handleBtn2();
+  else if (action === 'stop')  handleBtn3();
+});
+
+// ── Button handlers (context-dependent) ──────────────────────────────────────
+
+function handleBtn1() {
+  if (modal.classList.contains('visible')) return;
+  const s = cs();
+  if (!s.running && !s.paused) {
+    doStart();          // IDLE → start
+  } else if (s.running && !s.paused) {
+    doPause();          // RUNNING → pause
+  } else {
+    doResume();         // PAUSED → resume
+  }
+}
+
+function handleBtn2() {
+  if (modal.classList.contains('visible')) return;
+  const s = cs();
+  if (s.running || s.paused) doStop(); // ACTIVE → stop
+}
+
+function handleBtn3() {
+  if (modal.classList.contains('visible')) return;
+  const s = cs();
+  if (s.running || s.paused) openNote(); // ACTIVE → note
+}
+
+// ── Timer logic ───────────────────────────────────────────────────────────────
+
+function doStart() {
+  const s = cs();
+  s.elapsed    = 0;
+  s.ticket     = null;
+  s.alertFired = false;
+  s.baseTime   = performance.now();
+  s.running    = true;
+  s.paused     = false;
+  startTick();
+  updateUI();
+}
+
+function doResume() {
+  const s = cs();
+  s.baseTime = performance.now() - s.elapsed * 1000;
+  s.paused   = false;
+  s.running  = true;
+  startTick();
+  updateUI();
+}
+
+function doPause() {
+  const s = cs();
+  s.elapsed = Math.max(0, Math.round((performance.now() - s.baseTime) / 1000));
+  s.paused  = true;
+  stopTick();
+  updateUI();
+}
+
+function doStop() {
+  const s = cs();
+  if (!s.paused) s.elapsed = Math.max(0, Math.round((performance.now() - s.baseTime) / 1000));
+  s.running = false;
+  s.paused  = false;
+  stopTick();
+  updateUI();
+  openModal();
+}
+
+function startTick() {
+  if (tickInterval) return;
+  tickInterval = setInterval(() => {
+    const s = cs();
+    if (!s.running || s.paused) return;
+    s.elapsed = Math.max(0, Math.round((performance.now() - s.baseTime) / 1000));
+    timerDsp.textContent = fmt(s.elapsed);
+    // Time alert
+    if (alertMinutes > 0 && !s.alertFired && s.elapsed >= alertMinutes * 60) {
+      s.alertFired = true;
+      try {
+        new Notification('Ticket Timer ⏱', {
+          body: `Tu travailles depuis ${alertMinutes} min${s.ticket ? ` sur #${s.ticket}` : ''}`,
+          silent: false,
+        });
+      } catch (_) {}
+    }
+  }, 250);
+}
+
+function stopTick() {
+  clearInterval(tickInterval);
+  tickInterval = null;
+}
+
+// ── Slot management ───────────────────────────────────────────────────────────
+
+function switchSlot(index) {
+  if (index === activeSlot) return;
+  // Auto-pause current if running
+  const cur = cs();
+  if (cur.running && !cur.paused) {
+    cur.elapsed = Math.max(0, Math.round((performance.now() - cur.baseTime) / 1000));
+    cur.paused  = true;
+    stopTick();
+  }
+  activeSlot = index;
+  // Resume if the new slot was running before we switched away
+  const next = cs();
+  if (next.running && next.paused) {
+    // keep paused — user must manually resume
+  }
+  updateUI();
+  updateSlots();
+}
+
+function addSlot() {
+  const empty = slots.findIndex((s, i) => i !== activeSlot && !s.running && !s.paused && s.elapsed === 0);
+  if (empty === -1) return;
+  switchSlot(empty);
+}
+
+function updateSlots() {
+  const active = slots.filter(s => s.running || s.paused || s.elapsed > 0).length;
+  for (let i = 0; i < MAX_SLOTS; i++) {
+    const dot = document.getElementById(`slot${i}`);
+    const s   = slots[i];
+    dot.className = 'slot-dot';
+    if (s.running && !s.paused)      dot.classList.add('running');
+    else if (s.paused)               dot.classList.add('has-timer', 'paused');
+    else if (s.elapsed > 0)          dot.classList.add('has-timer');
+    if (i === activeSlot)            dot.classList.add('active');
+  }
+  const countEl = document.getElementById('slotCount');
+  countEl.textContent = active > 0 ? `${active}/${MAX_SLOTS}` : '';
+  const addBtn = document.getElementById('slotAdd');
+  const hasEmpty = slots.some((s, i) => i !== activeSlot && !s.running && !s.paused && s.elapsed === 0);
+  addBtn.disabled = !hasEmpty;
+}
+
+// ── UI updates ────────────────────────────────────────────────────────────────
+
+function updateUI() {
+  const s = cs();
+  const running = s.running && !s.paused;
+  const paused  = s.paused;
+  const active  = s.running || s.paused;
+
+  timerDsp.textContent = fmt(s.elapsed);
+
+  const stateClass = running ? 'running' : paused ? 'paused' : '';
+  card.className        = `card ${stateClass}`;
+  statusDot.className   = `status-dot ${stateClass}`;
+  timerDsp.className    = `timer-display ${stateClass}`;
+  statusText.className  = `status-text ${stateClass}`;
+  statusText.textContent= running ? 'EN COURS' : paused ? 'EN PAUSE' : 'EN ATTENTE';
+  ticketTag.textContent = s.ticket ? `#${s.ticket}` : '';
+
+  // Accent bar
+  accentBar.style.background = running
+    ? 'linear-gradient(90deg,transparent,var(--accent),transparent)'
+    : paused
+    ? 'linear-gradient(90deg,transparent,#ffaa00,transparent)'
+    : 'linear-gradient(90deg,transparent,#1a2438,transparent)';
+
+  // Key bar button labels
+  if (running) {
+    setKeyBtn(1, 'pause',  'Pause');
+    setKeyBtn(2, 'stop',   'Arrêter');
+    setKeyBtn(3, 'note',   'Note');
+  } else if (paused) {
+    setKeyBtn(1, 'start',  'Reprendre');
+    setKeyBtn(2, 'stop',   'Arrêter');
+    setKeyBtn(3, 'note',   'Note');
+  } else {
+    setKeyBtn(1, 'start',  'Démarrer');
+    setKeyBtn(2, 'dim',    '—');
+    setKeyBtn(3, 'dim',    '—');
+  }
+
+  updateSlots();
+}
+
+function setKeyBtn(n, colorClass, label) {
+  const btn = document.getElementById(`keyBtn${n}`);
+  const lbl = document.getElementById(`key${n}Label`);
+  btn.className = `key-item ${colorClass}`;
+  lbl.textContent = label;
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
+const MODAL_HEIGHT = 360;
+let preModalWidth  = 300;
+let preModalHeight = 240;
+
+function openModal() {
+  const s = cs();
+  savedTime.textContent = fmt(s.elapsed);
+  ticketInput.value = '';
+  document.getElementById('noteInput').value = s.notes ? '' : '';
+  inputWrap.classList.remove('error');
+  preModalWidth  = window.innerWidth;
+  preModalHeight = window.innerHeight;
+  window.api.resizeOverlay(Math.max(preModalWidth, 300), MODAL_HEIGHT);
+  modal.classList.add('visible');
+  setTimeout(() => ticketInput.focus(), 200);
+}
+
+function closeModal() {
+  modal.classList.remove('visible');
+  window.api.resizeOverlay(preModalWidth, preModalHeight);
+}
+
+function cancelModal() {
+  closeModal();
+  const s = cs();
+  s.baseTime = performance.now() - s.elapsed * 1000;
+  s.running  = true;
+  s.paused   = false;
+  startTick();
+  updateUI();
+}
+
+function discardEntry() {
+  closeModal();
+  const s = cs();
+  s.elapsed = 0; s.ticket = null; s.notes = '';
+  s.running = false; s.paused = false; s.alertFired = false;
+  stopTick();
+  updateUI();
+}
+
+async function saveEntry() {
+  const ticket = ticketInput.value.trim();
+  const note   = document.getElementById('noteInput').value.trim();
+  if (!ticket && !note) {
+    inputWrap.classList.add('error');
+    document.getElementById('noteWrap').classList.add('error');
+    setTimeout(() => {
+      inputWrap.classList.remove('error');
+      document.getElementById('noteWrap').classList.remove('error');
+    }, 600);
+    ticketInput.focus();
+    return;
+  }
+  const s = cs();
+  const now = new Date();
+  await window.api.saveEntry({
+    ticket, note: note || s.notes || '',
+    sessionNotes: s.notes || '',
+    date:       now.toLocaleDateString('fr-CA'),
+    time:       now.toLocaleTimeString('fr-CA', {hour:'2-digit',minute:'2-digit'}),
+    duration:   fmt(s.elapsed),
+    duration_s: s.elapsed,
+  });
+  s.ticket = ticket || note;
+  s.elapsed = 0; s.notes = ''; s.alertFired = false;
+  closeModal();
+  updateUI();
+}
+
+function openNote() {
+  const s = cs();
+  window.api.openSessionNotes(activeSlot, s.notes || '', s.ticket || '');
+}
+
+function openHistory() { window.api.openHistory(); }
+
+// ── Session notes update from window ─────────────────────────────────────────
+
+window.api.onSessionNotesUpdated((slotIndex, notes) => {
+  if (slotIndex >= 0 && slotIndex < MAX_SLOTS) {
+    slots[slotIndex].notes = notes;
+    // Show indicator if current slot has notes
+    if (slotIndex === activeSlot) updateUI();
+  }
+});
+
+// ── Keyboard shortcuts in modal ───────────────────────────────────────────────
+
+ticketInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter')  { e.preventDefault(); document.getElementById('noteInput').focus(); }
+  if (e.key === 'Escape') cancelModal();
+});
+document.getElementById('noteInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveEntry(); // Ctrl+Enter saves
+  if (e.key === 'Escape') cancelModal();
+  // Plain Enter adds a newline in textarea (default behavior, no override needed)
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmt(s) {
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+// ── Drag ──────────────────────────────────────────────────────────────────────
+
+let dragging = false, dragX = 0, dragY = 0;
+[document.querySelector('.titlebar'), document.querySelector('.timer-zone'), document.querySelector('.accent-bar'), document.querySelector('.slots-bar')]
+  .forEach(el => { if (!el) return; el.addEventListener('mousedown', e => { if (e.target.closest('button,input')) return; dragging=true; dragX=e.screenX; dragY=e.screenY; e.preventDefault(); }); });
+window.addEventListener('mousemove', e => { if (!dragging) return; window.api.dragWindow(e.screenX-dragX, e.screenY-dragY); dragX=e.screenX; dragY=e.screenY; });
+window.addEventListener('mouseup', () => { dragging=false; });
+
+// ── Collapse ──────────────────────────────────────────────────────────────────
+
+function toggleCollapse() { window.api.toggleCollapse(); }
+
+// ── Accent & shortcuts ────────────────────────────────────────────────────────
+
+const ACCENT_MAP = {
+  cyan:{main:'#00e5ff',dark:'#006680'}, green:{main:'#00ff9d',dark:'#007a4a'},
+  amber:{main:'#ffaa00',dark:'#664400'}, red:{main:'#ff3d5a',dark:'#6b1e24'},
+  violet:{main:'#b06aff',dark:'#5a2a88'}, white:{main:'#c8d8f0',dark:'#445566'},
+};
+
+function applyAccent(color) {
+  const c = ACCENT_MAP[color] || ACCENT_MAP.cyan;
+  const r = document.documentElement.style;
+  r.setProperty('--cyan',   c.main); r.setProperty('--cyan2',   c.dark);
+  r.setProperty('--accent', c.main); r.setProperty('--accent2', c.dark);
+}
+
+function applyShortcuts(sc) {
+  shortcuts = { ...shortcuts, ...sc };
+  document.getElementById('key1Code').textContent = sc.start   || 'F6';
+  document.getElementById('key2Code').textContent = sc.pause   || 'F7';
+  document.getElementById('key3Code').textContent = sc.stop    || 'F8';
+  document.getElementById('key4Code').textContent = sc.history || 'F9';
+}
+
+window.api.onApplySettings(s => {
+  if (s.accentColor)  applyAccent(s.accentColor);
+  if (s.shortcuts)    applyShortcuts(s.shortcuts);
+  if (s.alertMinutes !== undefined) alertMinutes = s.alertMinutes || 0;
+});
+
+window.api.getSettings().then(s => {
+  if (s.accentColor)  applyAccent(s.accentColor);
+  if (s.shortcuts)    applyShortcuts(s.shortcuts);
+  alertMinutes = s.alertMinutes || 0;
+});
+
+// ── Error logging ─────────────────────────────────────────────────────────────
+
+window.addEventListener('error', e => window.api.rendererLog('error', `${e.message} (${e.filename}:${e.lineno})`));
+window.addEventListener('unhandledrejection', e => window.api.rendererLog('error', `Unhandled: ${e.reason}`));
+window.addEventListener('beforeunload', () => stopTick());
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+updateUI();
+</script>
+</body>
+</html>

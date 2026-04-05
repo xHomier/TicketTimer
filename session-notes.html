@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Notes — Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Chakra+Petch:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#080c12; --surface:#0d1420; --card:#111827; --border:#1a2438; --border2:#243048;
+    --text:#e8f0ff; --dim:#7a9ab8; --dim2:#4a6580;
+    --cyan:#00e5ff; --green:#00ff9d; --amber:#ffaa00; --red:#ff3d5a; --violet:#b06aff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Chakra Petch',sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* Header */
+  .header { padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:10px; }
+  .header-info { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+  .header-title { font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .header-sub { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim); }
+  .header-actions { display:flex; gap:6px; flex-shrink:0; }
+  .btn { padding:5px 12px; border-radius:5px; cursor:pointer; font-family:'Chakra Petch',sans-serif; font-size:9px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
+  .btn-primary { background:var(--cyan); color:var(--bg); border:none; }
+  .btn-primary:hover { opacity:.85; }
+  .btn-clear { background:transparent; color:var(--dim); border:1px solid var(--border); }
+  .btn-clear:hover { color:var(--red); border-color:rgba(255,61,90,.4); }
+
+  /* Toolbar */
+  .toolbar { display:flex; align-items:center; gap:4px; padding:6px 12px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+  .tool-btn { padding:3px 8px; border-radius:4px; border:1px solid var(--border); background:transparent; color:var(--dim); cursor:pointer; font-size:11px; transition:all .15s; line-height:1.4; }
+  .tool-btn:hover { background:var(--border); color:var(--text); }
+  .tool-btn.active { background:rgba(0,229,255,.1); border-color:var(--cyan); color:var(--cyan); }
+  .tool-sep { width:1px; height:18px; background:var(--border); margin:0 2px; flex-shrink:0; }
+  .tool-hint { font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--dim2); margin-left:auto; }
+
+  /* Editor */
+  .editor-wrap { flex:1; overflow-y:auto; padding:12px 16px; }
+  .editor-wrap::-webkit-scrollbar { width:5px; }
+  .editor-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  #editor {
+    min-height:100%;
+    outline:none;
+    font-family:'Chakra Petch',sans-serif; font-size:12px; line-height:1.7;
+    color:var(--text); caret-color:var(--cyan);
+    white-space:pre-wrap; word-break:break-word;
+  }
+  #editor:empty::before { content:attr(data-placeholder); color:var(--dim2); pointer-events:none; }
+  #editor img { max-width:100%; border-radius:6px; margin:4px 0; display:block; border:1px solid var(--border); }
+  #editor b, #editor strong { color:#fff; }
+  #editor i, #editor em   { color:var(--dim); }
+  #editor ul, #editor ol   { padding-left:20px; }
+  #editor li { margin:2px 0; }
+
+  /* Footer */
+  .footer { flex-shrink:0; padding:6px 16px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--bg); }
+  .word-count { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim2); }
+  .save-status { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--green); opacity:0; transition:opacity .3s; }
+  .save-status.visible { opacity:1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-info">
+    <div class="header-title" id="headerTitle">Notes du timer</div>
+    <div class="header-sub" id="headerSub">Timer actif</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-clear" onclick="clearNotes()">🗑</button>
+    <button class="btn btn-primary" onclick="saveAndClose()">Fermer</button>
+  </div>
+</div>
+
+<div class="toolbar">
+  <button class="tool-btn" onclick="exec('bold')"        title="Gras (Ctrl+B)"><b>B</b></button>
+  <button class="tool-btn" onclick="exec('italic')"      title="Italique (Ctrl+I)"><i>I</i></button>
+  <button class="tool-btn" onclick="exec('underline')"   title="Souligné (Ctrl+U)"><u>U</u></button>
+  <div class="tool-sep"></div>
+  <button class="tool-btn" onclick="exec('insertUnorderedList')"   title="Liste à puces">•</button>
+  <button class="tool-btn" onclick="exec('insertOrderedList')"     title="Liste numérotée">1.</button>
+  <div class="tool-sep"></div>
+  <button class="tool-btn" onclick="exec('formatBlock','h3')"      title="Titre">H</button>
+  <button class="tool-btn" onclick="exec('formatBlock','p')"       title="Paragraphe normal">¶</button>
+  <div class="tool-sep"></div>
+  <button class="tool-btn" onclick="insertTimestamp()"             title="Insérer l'heure actuelle">🕐</button>
+  <span class="tool-hint">Coller images avec Ctrl+V</span>
+</div>
+
+<div class="editor-wrap">
+  <div id="editor" contenteditable="true"
+       data-placeholder="Écris tes notes ici... Tu peux coller des images avec Ctrl+V"
+       oninput="onEdit()" onpaste="onPaste(event)"></div>
+</div>
+
+<div class="footer">
+  <span class="word-count" id="wordCount">0 mot(s)</span>
+  <span class="save-status" id="saveStatus">✓ Sauvegardé</span>
+</div>
+
+<script>
+'use strict';
+
+let currentSlot  = 0;
+let saveTimer    = null;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+window.api.onSessionNotesInit((slotIndex, notes, ticket) => {
+  currentSlot = slotIndex;
+  document.getElementById('headerTitle').textContent  = ticket ? `Notes — #${ticket}` : `Notes — Timer ${slotIndex + 1}`;
+  document.getElementById('headerSub').textContent    = `Timer ${slotIndex + 1}`;
+  // Always start with a div wrapper so text is always block-level (fixes timestamp on first line)
+  document.getElementById('editor').innerHTML = notes || '<div><br></div>';
+  firstKeystrokeDone = notes ? true : false;
+  updateWordCount();
+  document.getElementById('editor').focus();
+});
+
+// ── Timestamp tracking (silent — shown only in ticket-detail) ─────────────────
+
+function fmtTs() {
+  const d = new Date();
+  const date = d.toLocaleDateString('fr-CA'); // YYYY-MM-DD
+  const h    = String(d.getHours()).padStart(2,'0');
+  const m    = String(d.getMinutes()).padStart(2,'0');
+  const s    = String(d.getSeconds()).padStart(2,'0');
+  return `${date} ${h}:${m}:${s}`;
+}
+
+function getBlock(node) {
+  const editor = document.getElementById('editor');
+  let el = node.nodeType === 3 ? node.parentElement : node;
+  while (el && el.parentElement !== editor) el = el.parentElement;
+  return (el && el !== editor) ? el : null;
+}
+
+function isBlockEmpty(el) {
+  return !el || el.innerText.trim() === '' && !el.querySelector('img');
+}
+
+function stampCurrentBlock() {
+  const sel = window.getSelection();
+  const hasRange = sel && sel.rangeCount > 0;
+  if (!hasRange) { window.api.rendererLog('warn', '[notes] stampCurrentBlock: no selection'); return; }
+  const node  = sel.getRangeAt(0).startContainer;
+  const block = getBlock(node);
+  const empty = isBlockEmpty(block);
+  const hasTsAlready = block && !!block.dataset.ts;
+  window.api.rendererLog('debug', `[notes] stamp: block=${block?.tagName} empty=${empty} hasTs=${hasTsAlready} text="${block?.innerText?.slice(0,20)}"`);
+  if (block && !hasTsAlready && !empty) {
+    block.dataset.ts = fmtTs();
+    window.api.rendererLog('info', `[notes] stamped block: "${block.innerText?.slice(0,20)}" @ ${block.dataset.ts}`);
+  }
+}
+
+function stampAllUnstamped() {
+  const editor = document.getElementById('editor');
+  const ts = fmtTs();
+  // Wrap bare text nodes in divs so they get a timestamp
+  Array.from(editor.childNodes).forEach(node => {
+    if (node.nodeType === 3 && node.textContent.trim()) {
+      const div = document.createElement('div');
+      node.parentNode.insertBefore(div, node);
+      div.appendChild(node);
+      div.dataset.ts = ts;
+    }
+  });
+  // Stamp all element children that don't have a timestamp yet
+  Array.from(editor.children).forEach(el => {
+    if (!el.dataset.ts && !isBlockEmpty(el)) el.dataset.ts = ts;
+  });
+}
+
+let firstKeystrokeDone = false;
+const editorEl = document.getElementById('editor');
+
+editorEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    stampCurrentBlock(); // stamp current block before Chromium splits it
+    // Chromium copies data-ts to the new block on split — clear it so it gets its own timestamp
+    setTimeout(() => {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      const block = getBlock(sel.getRangeAt(0).startContainer);
+      if (block && isBlockEmpty(block)) delete block.dataset.ts;
+    }, 0);
+  }
+}, true);
+
+// Stamp any unstamped blocks on save (catches edge cases)
+function stampBeforeSave() {
+  stampAllUnstamped();
+}
+
+// ── Editor ────────────────────────────────────────────────────────────────────
+
+function exec(cmd, val) {
+  document.execCommand(cmd, false, val || null);
+  document.getElementById('editor').focus();
+}
+
+function insertTimestamp() {
+  const t = new Date().toLocaleTimeString('fr-CA', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  exec('insertText', `[${t}] `);
+}
+
+function onEdit() {
+  stampCurrentBlock(); // stamp on input — fires after DOM update, so block is never empty
+  updateWordCount();
+  scheduleSave();
+}
+
+function onPaste(e) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const blob = item.getAsFile();
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = document.createElement('img');
+        img.src = ev.target.result;
+        img.style.maxWidth = '100%';
+
+        const wrapper = document.createElement('div');
+        wrapper.dataset.ts = fmtTs();
+        wrapper.appendChild(img);
+
+        // Insert as a direct child of the editor (sibling block, never nested)
+        const sel = window.getSelection();
+        const block = sel.rangeCount
+          ? getBlock(sel.getRangeAt(0).startContainer)
+          : null;
+
+        if (block && block.parentNode === editorEl) {
+          editorEl.insertBefore(wrapper, block.nextSibling);
+        } else {
+          editorEl.appendChild(wrapper);
+        }
+
+        // Add an empty div after image for cursor placement
+        const after = document.createElement('div');
+        after.innerHTML = '<br>';
+        editorEl.insertBefore(after, wrapper.nextSibling);
+
+        // Move cursor into the empty div after image
+        const range = document.createRange();
+        range.setStart(after, 0);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        scheduleSave();
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+  // Plain text paste — let browser handle it, then clean up
+  setTimeout(() => { updateWordCount(); scheduleSave(); }, 10);
+}
+
+function insertNode(node) {
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+
+function updateWordCount() {
+  const text = document.getElementById('editor').innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  document.getElementById('wordCount').textContent = `${words} mot(s)`;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSave, 600);
+}
+
+function doSave() {
+  stampBeforeSave();
+  const html = document.getElementById('editor').innerHTML;
+  window.api.saveSessionNotes(currentSlot, html);
+  const status = document.getElementById('saveStatus');
+  status.classList.add('visible');
+  setTimeout(() => status.classList.remove('visible'), 1500);
+}
+
+function saveAndClose() {
+  doSave();
+  window.close();
+}
+
+function clearNotes() {
+  if (!document.getElementById('editor').innerHTML) return;
+  document.getElementById('editor').innerHTML = '';
+  updateWordCount();
+  doSave();
+}
+</script>
+</body>
+</html>
